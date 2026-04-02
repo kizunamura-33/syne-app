@@ -61,7 +61,8 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
             alt={artist.name}
             width={80}
             height={80}
-            className="rounded-full object-cover object-top border-4 border-black"
+            className="w-20 h-20 rounded-full object-cover object-top border-4 border-black flex-shrink-0"
+            style={{ width: 80, height: 80 }}
           />
           <div className="flex gap-2">
             <button

@@ -53,13 +53,15 @@ export default function DiscoverPage() {
                 className="flex items-center gap-3 bg-zinc-950 rounded-2xl p-3 border border-zinc-800/50"
               >
                 <Link href={`/artist/${artist.id}`} className="flex-shrink-0">
-                  <Image
-                    src={artist.avatar}
-                    alt={artist.name}
-                    width={56}
-                    height={56}
-                    className="rounded-full object-cover object-top"
-                  />
+                  <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0">
+                    <Image
+                      src={artist.avatar}
+                      alt={artist.name}
+                      width={56}
+                      height={56}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
                 </Link>
                 <Link href={`/artist/${artist.id}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-1">

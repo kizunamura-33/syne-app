@@ -45,13 +45,15 @@ export default function PostCard({ post, showArtist = true }: Props) {
         {showArtist && artist && (
           <div className="flex items-center gap-3 px-4 py-3">
             <Link href={`/artist/${artist.id}`}>
-              <Image
-                src={artist.avatar}
-                alt={artist.name}
-                width={36}
-                height={36}
-                className="rounded-full object-cover object-top"
-              />
+              <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
+                <Image
+                  src={artist.avatar}
+                  alt={artist.name}
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-cover object-top"
+                />
+              </div>
             </Link>
             <div className="flex-1 min-w-0">
               <Link href={`/artist/${artist.id}`}>
