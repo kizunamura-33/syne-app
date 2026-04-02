@@ -73,7 +73,7 @@ export default function ProfilePage() {
                     alt={artist.name}
                     width={40}
                     height={40}
-                    className="rounded-full object-cover"
+                    className="rounded-full object-cover object-top"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-1">
@@ -116,7 +116,7 @@ export default function ProfilePage() {
                     alt={artist.name}
                     width={40}
                     height={40}
-                    className="rounded-full object-cover"
+                    className="rounded-full object-cover object-top"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-1">

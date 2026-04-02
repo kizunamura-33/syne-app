@@ -58,7 +58,7 @@ export default function DiscoverPage() {
                     alt={artist.name}
                     width={56}
                     height={56}
-                    className="rounded-full object-cover"
+                    className="rounded-full object-cover object-top"
                   />
                 </Link>
                 <Link href={`/artist/${artist.id}`} className="flex-1 min-w-0">

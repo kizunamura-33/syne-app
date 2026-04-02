@@ -50,7 +50,7 @@ export default function PostCard({ post, showArtist = true }: Props) {
                 alt={artist.name}
                 width={36}
                 height={36}
-                className="rounded-full object-cover"
+                className="rounded-full object-cover object-top"
               />
             </Link>
             <div className="flex-1 min-w-0">
