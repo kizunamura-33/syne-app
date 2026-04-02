@@ -95,8 +95,9 @@ export const posts: Post[] = [
   {
     id: "post1",
     artistId: "ziou",
-    type: "image",
-    content: "/ziou.jpg",
+    type: "video",
+    content: "/ziou-post1.mp4",
+    thumbnail: "/ziou.jpg",
     caption: "新曲のレコーディング中。今回は全部自分でプロデュース。リリースまで待っててね🎵",
     likes: 2840,
     comments: 156,

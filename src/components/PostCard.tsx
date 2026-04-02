@@ -81,7 +81,35 @@ export default function PostCard({ post, showArtist = true }: Props) {
 
         {/* Content */}
         <div className="relative">
-          {post.type === "image" && post.content ? (
+          {post.type === "video" && post.content ? (
+            <div className="relative aspect-square bg-zinc-900">
+              <video
+                src={post.content}
+                poster={post.thumbnail}
+                controls
+                playsInline
+                className={`w-full h-full object-cover ${isLocked ? "blur-xl scale-105" : ""}`}
+              />
+              {isLocked && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <div className="bg-black/60 backdrop-blur-sm rounded-2xl px-6 py-4 flex flex-col items-center gap-2">
+                    <Lock size={28} className="text-yellow-400" />
+                    <p className="text-white font-bold text-sm text-center">
+                      {post.exclusiveType === "paid"
+                        ? `¥${post.price} で解放`
+                        : "サブスク限定コンテンツ"}
+                    </p>
+                    <Link
+                      href={`/artist/${post.artistId}`}
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold px-4 py-1.5 rounded-full"
+                    >
+                      {post.exclusiveType === "paid" ? "購入する" : "サブスクする"}
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : post.type === "image" && post.content ? (
             <div className="relative aspect-square bg-zinc-900">
               <Image
                 src={post.content}
