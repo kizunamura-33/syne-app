@@ -17,7 +17,8 @@ function formatTime(iso: string): string {
 export default function ChatPage({ params }: { params: Promise<{ artistId: string }> }) {
   const { artistId } = use(params);
   const artist = artists.find((a) => a.id === artistId);
-  const { chatMessages, sendMessage, markChatRead, myAvatar } = useAppStore();
+  const { chatMessages, sendMessage, markChatRead, myAvatar, artistModeId } = useAppStore();
+  const isArtistMode = artistModeId === artistId;
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const messages = chatMessages.filter((m) => m.artistId === artistId);
@@ -144,13 +145,17 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       {/* Input */}
       <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 flex items-center gap-3 z-[60]">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-          <img src={myAvatar} alt="me" className="w-full h-full object-cover object-top" />
+          <img
+            src={isArtistMode ? artist.avatar : myAvatar}
+            alt="me"
+            className="w-full h-full object-cover object-top"
+          />
         </div>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={`${artist.name}にメッセージ...`}
+          placeholder={isArtistMode ? "ファンに返信..." : `${artist.name}にメッセージ...`}
           className="flex-1 bg-zinc-800 text-white placeholder-zinc-600 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-1 focus:ring-purple-500/50"
         />
         <button

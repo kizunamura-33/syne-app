@@ -3,14 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Settings, ChevronRight, X, Camera, Check } from "lucide-react";
+import { Crown, Settings, ChevronRight, X, Camera, Check, Mic } from "lucide-react";
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
 
 export default function ProfilePage() {
-  const { followedArtists, subscribedArtists, setMyProfile } = useAppStore();
+  const { followedArtists, subscribedArtists, setMyProfile, artistModeId, setArtistMode } = useAppStore();
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
 
@@ -24,6 +24,7 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState("");
   const [editAvatar, setEditAvatar] = useState(DEFAULT_AVATAR);
   const [saved, setSaved] = useState(false);
+  const [artistSheetOpen, setArtistSheetOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // localStorageから読み込み
@@ -204,6 +205,35 @@ export default function ProfilePage() {
           )}
         </div>
 
+        {/* Artist Mode */}
+        <div className="mb-6">
+          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">アーティストモード</h3>
+          {artistModeId ? (
+            <div className="flex items-center justify-between bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-2xl p-3 border border-purple-500/30">
+              <div className="flex items-center gap-2">
+                <Mic size={14} className="text-purple-400" />
+                <span className="text-white text-sm font-semibold">
+                  {artists.find((a) => a.id === artistModeId)?.name} として操作中
+                </span>
+              </div>
+              <button
+                onClick={() => setArtistMode(null)}
+                className="text-xs text-zinc-400 font-medium px-3 py-1 rounded-full border border-zinc-700"
+              >
+                終了
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setArtistSheetOpen(true)}
+              className="w-full flex items-center justify-center gap-2 bg-zinc-900 rounded-2xl p-3.5 border border-zinc-800 text-zinc-300 text-sm font-bold"
+            >
+              <Mic size={15} />
+              アーティストとして操作する
+            </button>
+          )}
+        </div>
+
         {/* Tip */}
         <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 rounded-2xl p-4 border border-purple-500/20">
           <h3 className="text-white font-bold text-sm mb-1">投げ銭機能</h3>
@@ -211,6 +241,45 @@ export default function ProfilePage() {
           <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm py-2.5 rounded-xl">
             ライブを探す
           </button>
+        </div>
+      </div>
+
+      {/* Artist Mode Sheet */}
+      <div
+        className={`fixed inset-0 z-[60] bg-black/70 transition-opacity ${artistSheetOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setArtistSheetOpen(false)}
+      />
+      <div
+        className={`fixed inset-x-0 bottom-0 z-[70] max-w-md mx-auto bg-zinc-950 rounded-t-2xl transition-transform duration-300 ${artistSheetOpen ? "translate-y-0" : "translate-y-full"}`}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-zinc-700 rounded-full" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+          <h3 className="text-white font-bold">アーティストを選択</h3>
+          <button onClick={() => setArtistSheetOpen(false)}>
+            <X size={20} className="text-zinc-400" />
+          </button>
+        </div>
+        <div className="px-4 py-3 space-y-2 pb-8">
+          {artists.map((artist) => (
+            <button
+              key={artist.id}
+              onClick={() => { setArtistMode(artist.id); setArtistSheetOpen(false); }}
+              className="w-full flex items-center gap-3 bg-zinc-900 rounded-2xl p-3 border border-zinc-800 text-left"
+            >
+              <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                <img src={artist.avatar} alt={artist.name} className="w-full h-full object-cover object-top" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1">
+                  <span className="text-white font-semibold text-sm">{artist.name}</span>
+                  {artist.verified && <Crown size={11} className="text-yellow-400 fill-yellow-400" />}
+                </div>
+                <p className="text-zinc-500 text-xs">{artist.genre}</p>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 

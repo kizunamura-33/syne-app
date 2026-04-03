@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
+import ArtistModeBanner from "@/components/ArtistModeBanner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,6 +20,7 @@ export default function RootLayout({
     <html lang="ja">
       <body className={`${inter.className} bg-black text-white antialiased`}>
         <div className="max-w-md mx-auto min-h-screen relative">
+          <ArtistModeBanner />
           <main className="pb-20">{children}</main>
           <BottomNav />
         </div>

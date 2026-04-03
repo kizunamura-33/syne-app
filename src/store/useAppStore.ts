@@ -58,6 +58,7 @@ type AppStore = {
   unreadChats: Set<string>;
   myAvatar: string;
   myName: string;
+  artistModeId: string | null;
 
   toggleLike: (postId: string) => void;
   toggleFollow: (artistId: string) => void;
@@ -68,6 +69,7 @@ type AppStore = {
   sendMessage: (artistId: string, text: string) => void;
   markChatRead: (artistId: string) => void;
   setMyProfile: (avatar: string, name: string) => void;
+  setArtistMode: (artistId: string | null) => void;
 
   isLiked: (postId: string) => boolean;
   isFollowed: (artistId: string) => boolean;
@@ -90,6 +92,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   unreadChats: new Set(["ziou", "haruki"]),
   myAvatar: DEFAULT_MY_AVATAR,
   myName: DEFAULT_MY_NAME,
+  artistModeId: null,
 
   toggleLike: (postId) => {
     const { likedPosts, likeCount } = get();
@@ -132,12 +135,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   addComment: (postId, text) => {
+    const { artistModeId, myName, myAvatar } = get();
+    const artist = artistModeId ? artists.find((a) => a.id === artistModeId) : null;
     const newComment: Comment = {
       id: `c${Date.now()}`,
       postId,
-      userId: "me",
-      userName: get().myName,
-      userAvatar: get().myAvatar,
+      userId: artistModeId ?? "me",
+      userName: artist ? artist.name : myName,
+      userAvatar: artist ? artist.avatar : myAvatar,
       text,
       createdAt: new Date().toISOString(),
     };
@@ -145,6 +150,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   setMyProfile: (avatar, name) => set({ myAvatar: avatar, myName: name }),
+  setArtistMode: (artistId) => set({ artistModeId: artistId }),
 
   markNotificationsRead: () => {
     set({
@@ -155,34 +161,37 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   sendMessage: (artistId, text) => {
+    const { artistModeId } = get();
+    const isArtistMode = artistModeId === artistId;
     const newMsg: ChatMessage = {
       id: `msg${Date.now()}`,
       artistId,
-      fromMe: true,
+      fromMe: !isArtistMode,
       text,
       createdAt: new Date().toISOString(),
     };
-    // Simulate artist reply after 1.5s
-    const artist = artists.find((a) => a.id === artistId);
-    const replies = [
-      "ありがとう！嬉しいな😊",
-      "いつも応援ありがとう🎵",
-      "最高だね！",
-      "次のライブで会おう！",
-      "感謝してます！",
-    ];
-    const replyText = replies[Math.floor(Math.random() * replies.length)];
-    const replyMsg: ChatMessage = {
-      id: `msg${Date.now() + 1}`,
-      artistId,
-      fromMe: false,
-      text: replyText,
-      createdAt: new Date(Date.now() + 1500).toISOString(),
-    };
     set({ chatMessages: [...get().chatMessages, newMsg] });
-    setTimeout(() => {
-      set({ chatMessages: [...get().chatMessages, replyMsg] });
-    }, 1500);
+    // Auto-reply only in fan mode
+    if (!isArtistMode) {
+      const replies = [
+        "ありがとう！嬉しいな😊",
+        "いつも応援ありがとう🎵",
+        "最高だね！",
+        "次のライブで会おう！",
+        "感謝してます！",
+      ];
+      const replyText = replies[Math.floor(Math.random() * replies.length)];
+      const replyMsg: ChatMessage = {
+        id: `msg${Date.now() + 1}`,
+        artistId,
+        fromMe: false,
+        text: replyText,
+        createdAt: new Date(Date.now() + 1500).toISOString(),
+      };
+      setTimeout(() => {
+        set({ chatMessages: [...get().chatMessages, replyMsg] });
+      }, 1500);
+    }
   },
 
   markChatRead: (artistId) => {
