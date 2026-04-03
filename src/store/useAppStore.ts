@@ -66,8 +66,13 @@ type AppStore = {
   authInitialized: boolean;
   artistProfiles: Record<string, { bio: string; avatar: string }>;
 
+  // Follows
+  fanId: string;
+  followerCounts: Record<string, number>;
+  fetchFollowerCount: (artistId: string) => Promise<void>;
+
   toggleLike: (postId: string) => void;
-  toggleFollow: (artistId: string) => void;
+  toggleFollow: (artistId: string) => Promise<void>;
   toggleSubscribe: (artistId: string) => void;
   addComment: (postId: string, text: string) => void;
   markNotificationsRead: () => void;
@@ -109,6 +114,8 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   supabaseArtistId: null,
   authInitialized: false,
   artistProfiles: {},
+  fanId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+  followerCounts: {},
 
   initArtistAuth: () => {
     const loadProfile = async (artistId: string) => {
@@ -205,12 +212,28 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
     });
   },
 
-  toggleFollow: (artistId) => {
-    const { followedArtists } = get();
+  fetchFollowerCount: async (artistId) => {
+    const { count } = await supabase
+      .from("follows")
+      .select("*", { count: "exact", head: true })
+      .eq("artist_id", artistId);
+    if (count !== null) {
+      set((state) => ({ followerCounts: { ...state.followerCounts, [artistId]: count } }));
+    }
+  },
+
+  toggleFollow: async (artistId) => {
+    const { followedArtists, fanId } = get();
     const newFollowed = new Set(followedArtists);
-    if (newFollowed.has(artistId)) newFollowed.delete(artistId);
-    else newFollowed.add(artistId);
+    if (newFollowed.has(artistId)) {
+      newFollowed.delete(artistId);
+      await supabase.from("follows").delete().eq("fan_id", fanId).eq("artist_id", artistId);
+    } else {
+      newFollowed.add(artistId);
+      await supabase.from("follows").insert({ fan_id: fanId, artist_id: artistId });
+    }
     set({ followedArtists: newFollowed });
+    get().fetchFollowerCount(artistId);
   },
 
   toggleSubscribe: (artistId) => {
@@ -294,5 +317,5 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   },
 }), {
   name: "syne-chat-storage",
-  partialize: (state) => ({ chatMessages: state.chatMessages }),
+  partialize: (state) => ({ chatMessages: state.chatMessages, fanId: state.fanId }),
 }));

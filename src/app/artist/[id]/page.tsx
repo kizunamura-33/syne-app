@@ -16,10 +16,13 @@ function formatFollowers(n: number): string {
 export default function ArtistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const artist = artists.find((a) => a.id === id);
-  const { toggleFollow, isFollowed, toggleSubscribe, isSubscribed, supabaseArtistId, updateArtistProfile, getArtistAvatar, getArtistBio } = useAppStore();
+  const { toggleFollow, isFollowed, toggleSubscribe, isSubscribed, supabaseArtistId, updateArtistProfile, getArtistAvatar, getArtistBio, fetchFollowerCount, followerCounts } = useAppStore();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    fetchFollowerCount(id);
+  }, [id, fetchFollowerCount]);
 
   const isMyArtist = mounted && supabaseArtistId === id;
   const currentAvatar = getArtistAvatar(id);
@@ -157,7 +160,9 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           {isMyArtist ? (
             <div className="flex gap-4 mt-3">
               <div className="bg-zinc-900 rounded-xl px-4 py-2.5 text-center">
-                <p className="text-white font-black text-lg">{formatFollowers(artist.followers)}</p>
+                <p className="text-white font-black text-lg">
+                  {followerCounts[id] !== undefined ? followerCounts[id].toLocaleString() : "..."}
+                </p>
                 <p className="text-zinc-500 text-xs">フォロワー</p>
               </div>
               <div className="bg-zinc-900 rounded-xl px-4 py-2.5 text-center">
@@ -168,7 +173,9 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           ) : (
             <div className="flex items-center gap-1 mt-2">
               <Users size={14} className="text-zinc-500" />
-              <span className="text-zinc-500 text-sm">{formatFollowers(artist.followers)} フォロワー</span>
+              <span className="text-zinc-500 text-sm">
+                {followerCounts[id] !== undefined ? followerCounts[id].toLocaleString() : formatFollowers(artist.followers)} フォロワー
+              </span>
             </div>
           )}
         </div>
