@@ -23,7 +23,7 @@ function timeAgo(iso: string): string {
 
 export default function CommentSheet({ postId, open, onClose }: Props) {
   const [text, setText] = useState("");
-  const { comments, addComment } = useAppStore();
+  const { comments, addComment, myAvatar } = useAppStore();
   const postComments = comments.filter((c) => c.postId === postId);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -99,13 +99,9 @@ export default function CommentSheet({ postId, open, onClose }: Props) {
 
         {/* Input */}
         <div className="flex items-center gap-3 px-4 py-3 border-t border-zinc-800 bg-zinc-950">
-          <Image
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50&h=50&fit=crop"
-            alt="me"
-            width={32}
-            height={32}
-            className="rounded-full object-cover flex-shrink-0"
-          />
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+            <img src={myAvatar} alt="me" className="w-full h-full object-cover object-top" />
+          </div>
           <input
             ref={inputRef}
             value={text}

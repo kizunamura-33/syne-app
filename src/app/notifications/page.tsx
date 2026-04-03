@@ -64,13 +64,15 @@ export default function NotificationsPage() {
               {/* Avatar + icon */}
               <div className="relative flex-shrink-0">
                 {artist && (
-                  <Image
-                    src={artist.avatar}
-                    alt={artist.name}
-                    width={44}
-                    height={44}
-                    className="rounded-full object-cover"
-                  />
+                  <div className="w-11 h-11 rounded-full overflow-hidden">
+                    <Image
+                      src={artist.avatar}
+                      alt={artist.name}
+                      width={44}
+                      height={44}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
                 )}
                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${colorClass}`}>
                   <Icon size={10} />

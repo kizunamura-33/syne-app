@@ -10,7 +10,7 @@ import { useAppStore } from "@/store/useAppStore";
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
 
 export default function ProfilePage() {
-  const { followedArtists, subscribedArtists } = useAppStore();
+  const { followedArtists, subscribedArtists, setMyProfile } = useAppStore();
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
 
@@ -35,7 +35,10 @@ export default function ProfilePage() {
         if (p.name) setName(p.name);
         if (p.handle) setHandle(p.handle);
         if (p.bio !== undefined) setBio(p.bio);
-        if (p.avatar) setAvatar(p.avatar);
+        if (p.avatar) {
+          setAvatar(p.avatar);
+          setMyProfile(p.avatar, p.name || "あなた");
+        }
       }
     } catch {}
   }, []);
@@ -81,6 +84,7 @@ export default function ProfilePage() {
     setHandle(newHandle);
     setBio(newBio);
     setAvatar(newAvatar);
+    setMyProfile(newAvatar, newName);
     try {
       localStorage.setItem(
         "syne_profile",

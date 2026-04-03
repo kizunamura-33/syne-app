@@ -17,7 +17,7 @@ function formatTime(iso: string): string {
 export default function ChatPage({ params }: { params: Promise<{ artistId: string }> }) {
   const { artistId } = use(params);
   const artist = artists.find((a) => a.id === artistId);
-  const { chatMessages, sendMessage, markChatRead } = useAppStore();
+  const { chatMessages, sendMessage, markChatRead, myAvatar } = useAppStore();
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const messages = chatMessages.filter((m) => m.artistId === artistId);
@@ -143,13 +143,9 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
 
       {/* Input */}
       <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 flex items-center gap-3 z-[60]">
-        <Image
-          src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50&h=50&fit=crop"
-          alt="me"
-          width={32}
-          height={32}
-          className="rounded-full object-cover flex-shrink-0"
-        />
+        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+          <img src={myAvatar} alt="me" className="w-full h-full object-cover object-top" />
+        </div>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}

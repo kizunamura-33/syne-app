@@ -43,6 +43,9 @@ const initialMessages: ChatMessage[] = [
   },
 ];
 
+const DEFAULT_MY_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50&h=50&fit=crop";
+const DEFAULT_MY_NAME = "あなた";
+
 type AppStore = {
   likedPosts: Set<string>;
   followedArtists: Set<string>;
@@ -53,6 +56,8 @@ type AppStore = {
   activeTab: string;
   chatMessages: ChatMessage[];
   unreadChats: Set<string>;
+  myAvatar: string;
+  myName: string;
 
   toggleLike: (postId: string) => void;
   toggleFollow: (artistId: string) => void;
@@ -62,6 +67,7 @@ type AppStore = {
   setActiveTab: (tab: string) => void;
   sendMessage: (artistId: string, text: string) => void;
   markChatRead: (artistId: string) => void;
+  setMyProfile: (avatar: string, name: string) => void;
 
   isLiked: (postId: string) => boolean;
   isFollowed: (artistId: string) => boolean;
@@ -82,6 +88,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeTab: "home",
   chatMessages: initialMessages,
   unreadChats: new Set(["ziou", "haruki"]),
+  myAvatar: DEFAULT_MY_AVATAR,
+  myName: DEFAULT_MY_NAME,
 
   toggleLike: (postId) => {
     const { likedPosts, likeCount } = get();
@@ -128,13 +136,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       id: `c${Date.now()}`,
       postId,
       userId: "me",
-      userName: "あなた",
-      userAvatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50&h=50&fit=crop",
+      userName: get().myName,
+      userAvatar: get().myAvatar,
       text,
       createdAt: new Date().toISOString(),
     };
     set({ comments: [...get().comments, newComment] });
   },
+
+  setMyProfile: (avatar, name) => set({ myAvatar: avatar, myName: name }),
 
   markNotificationsRead: () => {
     set({
