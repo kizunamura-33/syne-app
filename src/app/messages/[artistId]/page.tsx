@@ -1,0 +1,170 @@
+"use client";
+
+import { use, useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { ChevronLeft, Crown, Send } from "lucide-react";
+import { artists } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function ChatPage({ params }: { params: Promise<{ artistId: string }> }) {
+  const { artistId } = use(params);
+  const artist = artists.find((a) => a.id === artistId);
+  const { chatMessages, sendMessage, markChatRead } = useAppStore();
+  const [text, setText] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const messages = chatMessages.filter((m) => m.artistId === artistId);
+
+  useEffect(() => {
+    markChatRead(artistId);
+  }, [artistId, markChatRead]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    sendMessage(artistId, text.trim());
+    setText("");
+  };
+
+  if (!artist) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-zinc-500">
+        アーティストが見つかりません
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-black">
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-black/95 backdrop-blur-md border-b border-zinc-800/50 px-4 py-3 flex items-center gap-3">
+        <Link href="/messages" className="flex-shrink-0">
+          <ChevronLeft size={22} className="text-white" />
+        </Link>
+        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
+          <Image
+            src={artist.avatar}
+            alt={artist.name}
+            width={36}
+            height={36}
+            className="w-full h-full object-cover object-top"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1">
+            <span className="text-white font-bold text-sm">{artist.name}</span>
+            {artist.verified && (
+              <Crown size={11} className="text-yellow-400 fill-yellow-400" />
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+            <span className="text-green-500 text-xs">オンライン</span>
+          </div>
+        </div>
+        <Link
+          href={`/artist/${artist.id}`}
+          className="text-xs text-purple-400 font-medium"
+        >
+          プロフィール
+        </Link>
+      </header>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-24">
+        {/* Date divider */}
+        <div className="flex items-center gap-2 my-2">
+          <div className="flex-1 h-px bg-zinc-800" />
+          <span className="text-zinc-600 text-xs">今日</span>
+          <div className="flex-1 h-px bg-zinc-800" />
+        </div>
+
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex items-end gap-2 ${msg.fromMe ? "flex-row-reverse" : "flex-row"}`}
+          >
+            {/* Artist avatar (only for artist messages) */}
+            {!msg.fromMe && (
+              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mb-1">
+                <Image
+                  src={artist.avatar}
+                  alt={artist.name}
+                  width={28}
+                  height={28}
+                  className="w-full h-full object-cover object-top"
+                />
+              </div>
+            )}
+
+            <div className={`flex flex-col gap-1 max-w-[72%] ${msg.fromMe ? "items-end" : "items-start"}`}>
+              <div
+                className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                  msg.fromMe
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-br-sm"
+                    : "bg-zinc-800 text-white rounded-bl-sm"
+                }`}
+              >
+                {msg.text}
+              </div>
+              <span className="text-zinc-600 text-[10px]">{formatTime(msg.createdAt)}</span>
+            </div>
+          </div>
+        ))}
+
+        {messages.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-3">
+              <Image
+                src={artist.avatar}
+                alt={artist.name}
+                width={64}
+                height={64}
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+            <p className="text-white font-bold">{artist.name}</p>
+            <p className="text-zinc-500 text-sm mt-1">{artist.genre}</p>
+            <p className="text-zinc-600 text-xs mt-3">最初のメッセージを送ってみよう</p>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 pb-safe flex items-center gap-3">
+        <Image
+          src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50&h=50&fit=crop"
+          alt="me"
+          width={32}
+          height={32}
+          className="rounded-full object-cover flex-shrink-0"
+        />
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          placeholder={`${artist.name}にメッセージ...`}
+          className="flex-1 bg-zinc-800 text-white placeholder-zinc-600 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-1 focus:ring-purple-500/50"
+        />
+        <button
+          onClick={handleSend}
+          disabled={!text.trim()}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-pink-600 disabled:opacity-30 transition-opacity flex-shrink-0"
+        >
+          <Send size={16} className="text-white" />
+        </button>
+      </div>
+    </div>
+  );
+}

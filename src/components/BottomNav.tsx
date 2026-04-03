@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, Bell, User } from "lucide-react";
+import { Home, Search, Bell, User, MessageCircle } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const getUnreadCount = useAppStore((s) => s.getUnreadCount);
+  const getTotalUnreadChats = useAppStore((s) => s.getTotalUnreadChats);
   const unread = getUnreadCount();
+  const unreadChats = getTotalUnreadChats();
 
   const tabs = [
     { href: "/", icon: Home, label: "ホーム" },
     { href: "/discover", icon: Search, label: "発見" },
+    { href: "/messages", icon: MessageCircle, label: "チャット", badge: unreadChats },
     { href: "/notifications", icon: Bell, label: "通知", badge: unread },
     { href: "/profile", icon: User, label: "マイ" },
   ];
@@ -21,7 +24,7 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-zinc-800 pb-safe">
       <div className="max-w-md mx-auto flex">
         {tabs.map(({ href, icon: Icon, label, badge }) => {
-          const active = pathname === href;
+          const active = pathname === href || pathname.startsWith(href + "/") && href !== "/";
           return (
             <Link
               key={href}
