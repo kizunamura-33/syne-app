@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { posts as initialPosts, comments as initialComments, notifications as initialNotifications, artists } from "@/data/mockData";
 import type { Comment, Notification } from "@/data/mockData";
 import { supabase } from "@/lib/supabase";
@@ -62,6 +63,7 @@ type AppStore = {
 
   // Supabase auth
   supabaseArtistId: string | null;
+  authInitialized: boolean;
   artistProfiles: Record<string, { bio: string; avatar: string }>;
 
   toggleLike: (postId: string) => void;
@@ -92,7 +94,7 @@ type AppStore = {
   getLastMessage: (artistId: string) => ChatMessage | undefined;
 };
 
-export const useAppStore = create<AppStore>((set, get) => ({
+export const useAppStore = create<AppStore>()(persist((set, get) => ({
   likedPosts: new Set(),
   followedArtists: new Set(["ziou"]),
   subscribedArtists: new Set(),
@@ -105,6 +107,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   myAvatar: DEFAULT_MY_AVATAR,
   myName: DEFAULT_MY_NAME,
   supabaseArtistId: null,
+  authInitialized: false,
   artistProfiles: {},
 
   initArtistAuth: () => {
@@ -126,7 +129,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       const artistId = (session?.user?.user_metadata?.artist_id as string) ?? null;
-      set({ supabaseArtistId: artistId });
+      set({ supabaseArtistId: artistId, authInitialized: true });
       if (artistId) loadProfile(artistId);
     });
 
@@ -242,8 +245,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   sendMessage: (artistId, text) => {
-    const { supabaseArtistId } = get();
-    const isArtistMode = supabaseArtistId === artistId;
+    const { supabaseArtistId, authInitialized } = get();
+    const isArtistMode = authInitialized && supabaseArtistId === artistId;
     const newMsg: ChatMessage = {
       id: `msg${Date.now()}`,
       artistId,
@@ -289,4 +292,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const msgs = get().chatMessages.filter((m) => m.artistId === artistId);
     return msgs[msgs.length - 1];
   },
+}), {
+  name: "syne-chat-storage",
+  partialize: (state) => ({ chatMessages: state.chatMessages }),
 }));
