@@ -81,7 +81,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-24">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-36">
         {/* Date divider */}
         <div className="flex items-center gap-2 my-2">
           <div className="flex-1 h-px bg-zinc-800" />
@@ -142,7 +142,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       </div>
 
       {/* Input */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 pb-safe flex items-center gap-3">
+      <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 flex items-center gap-3 z-[60]">
         <Image
           src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50&h=50&fit=crop"
           alt="me"

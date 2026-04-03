@@ -43,7 +43,7 @@ export default function CommentSheet({ postId, open, onClose }: Props) {
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity ${
+        className={`fixed inset-0 z-[60] bg-black/60 transition-opacity ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -51,7 +51,7 @@ export default function CommentSheet({ postId, open, onClose }: Props) {
 
       {/* Sheet */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 rounded-t-2xl transition-transform duration-300 ${
+        className={`fixed bottom-0 left-0 right-0 z-[70] bg-zinc-950 rounded-t-2xl transition-transform duration-300 ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         style={{ maxHeight: "70vh" }}
