@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Settings, ChevronRight, X, Pencil } from "lucide-react";
+import { Crown, Settings, ChevronRight, X, Pencil, Check } from "lucide-react";
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -12,22 +12,44 @@ export default function ProfilePage() {
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
 
-  const [editOpen, setEditOpen] = useState(false);
+  // localStorageから読み込み
   const [name, setName] = useState("あなた");
   const [handle, setHandle] = useState("fan_user");
   const [bio, setBio] = useState("");
-  const [draft, setDraft] = useState({ name: "", handle: "", bio: "" });
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editHandle, setEditHandle] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("syne_profile");
+    if (stored) {
+      const p = JSON.parse(stored);
+      if (p.name) setName(p.name);
+      if (p.handle) setHandle(p.handle);
+      if (p.bio !== undefined) setBio(p.bio);
+    }
+  }, []);
 
   const openEdit = () => {
-    setDraft({ name, handle, bio });
+    setEditName(name);
+    setEditHandle(handle);
+    setEditBio(bio);
     setEditOpen(true);
   };
 
   const saveEdit = () => {
-    setName(draft.name.trim() || name);
-    setHandle(draft.handle.trim() || handle);
-    setBio(draft.bio.trim());
+    const newName = editName.trim() || name;
+    const newHandle = editHandle.trim() || handle;
+    const newBio = editBio.trim();
+    setName(newName);
+    setHandle(newHandle);
+    setBio(newBio);
+    localStorage.setItem("syne_profile", JSON.stringify({ name: newName, handle: newHandle, bio: newBio }));
     setEditOpen(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -41,10 +63,16 @@ export default function ProfilePage() {
         </button>
       </header>
 
+      {/* 保存完了トースト */}
+      <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-zinc-800 text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 ${saved ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+        <Check size={14} className="text-green-400" />
+        保存しました
+      </div>
+
       <div className="px-4 py-6">
         {/* Profile row */}
         <div className="flex items-center gap-4 mb-3">
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Image
               src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop"
               alt="My profile"
@@ -59,14 +87,14 @@ export default function ProfilePage() {
               <Pencil size={10} className="text-white" />
             </button>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h2 className="text-white font-bold text-lg leading-tight">{name}</h2>
             <p className="text-zinc-500 text-sm">@{handle}</p>
             {bio && <p className="text-zinc-400 text-xs mt-1 leading-relaxed">{bio}</p>}
           </div>
           <button
             onClick={openEdit}
-            className="px-4 py-1.5 rounded-full border border-zinc-700 text-zinc-300 text-xs font-bold"
+            className="flex-shrink-0 px-4 py-1.5 rounded-full border border-zinc-700 text-zinc-300 text-xs font-bold"
           >
             編集
           </button>
@@ -151,7 +179,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Edit sheet backdrop */}
+      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/60 transition-opacity ${editOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={() => setEditOpen(false)}
@@ -159,28 +187,25 @@ export default function ProfilePage() {
 
       {/* Edit sheet */}
       <div className={`fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto bg-zinc-950 rounded-t-2xl transition-transform duration-300 ${editOpen ? "translate-y-0" : "translate-y-full"}`}>
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-zinc-700 rounded-full" />
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <button onClick={() => setEditOpen(false)} className="text-zinc-400">
+          <button onClick={() => setEditOpen(false)} className="text-zinc-400 p-1">
             <X size={20} />
           </button>
           <h3 className="text-white font-bold">プロフィールを編集</h3>
           <button
             onClick={saveEdit}
-            className="text-sm font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent"
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold px-4 py-1.5 rounded-full"
           >
             保存
           </button>
         </div>
 
-        {/* Form */}
-        <div className="px-4 py-5 space-y-4 pb-10">
-          {/* Avatar placeholder */}
+        <div className="px-4 py-5 space-y-4 overflow-y-auto" style={{ maxHeight: "60vh" }}>
+          {/* Avatar */}
           <div className="flex justify-center mb-2">
             <div className="relative">
               <Image
@@ -202,9 +227,9 @@ export default function ProfilePage() {
               名前
             </label>
             <input
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder={name}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="名前を入力"
               maxLength={30}
               className="w-full bg-zinc-900 text-white placeholder-zinc-600 text-sm rounded-xl px-4 py-3 outline-none border border-zinc-800 focus:border-purple-500/60 transition-colors"
             />
@@ -216,11 +241,11 @@ export default function ProfilePage() {
               ユーザーID
             </label>
             <div className="flex items-center bg-zinc-900 rounded-xl border border-zinc-800 focus-within:border-purple-500/60 transition-colors overflow-hidden">
-              <span className="text-zinc-600 text-sm pl-4">@</span>
+              <span className="text-zinc-600 text-sm pl-4 flex-shrink-0">@</span>
               <input
-                value={draft.handle}
-                onChange={(e) => setDraft({ ...draft, handle: e.target.value.replace(/\s/g, "") })}
-                placeholder={handle}
+                value={editHandle}
+                onChange={(e) => setEditHandle(e.target.value.replace(/\s/g, ""))}
+                placeholder="ユーザーID"
                 maxLength={20}
                 className="flex-1 bg-transparent text-white placeholder-zinc-600 text-sm px-2 py-3 outline-none"
               />
@@ -233,14 +258,22 @@ export default function ProfilePage() {
               自己紹介
             </label>
             <textarea
-              value={draft.bio}
-              onChange={(e) => setDraft({ ...draft, bio: e.target.value })}
+              value={editBio}
+              onChange={(e) => setEditBio(e.target.value)}
               placeholder="好きなアーティストや音楽を書いてみよう..."
               maxLength={100}
               rows={3}
               className="w-full bg-zinc-900 text-white placeholder-zinc-600 text-sm rounded-xl px-4 py-3 outline-none border border-zinc-800 focus:border-purple-500/60 transition-colors resize-none"
             />
-            <p className="text-zinc-700 text-xs text-right mt-1">{draft.bio.length}/100</p>
+            <p className="text-zinc-700 text-xs text-right mt-1">{editBio.length}/100</p>
+          </div>
+
+          {/* 使い方説明 */}
+          <div className="bg-zinc-900 rounded-xl p-3 border border-zinc-800/50 space-y-1.5">
+            <p className="text-zinc-500 text-xs font-bold">使い方</p>
+            <p className="text-zinc-600 text-xs">① 名前・ユーザーID・自己紹介を入力</p>
+            <p className="text-zinc-600 text-xs">② 右上の「保存」ボタンをタップ</p>
+            <p className="text-zinc-600 text-xs">③ ページを更新しても内容は保持されます</p>
           </div>
         </div>
       </div>
