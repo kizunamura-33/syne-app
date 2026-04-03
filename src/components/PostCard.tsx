@@ -29,7 +29,7 @@ function timeAgo(iso: string): string {
 
 export default function PostCard({ post, showArtist = true }: Props) {
   const artist = artists.find((a) => a.id === post.artistId);
-  const { toggleLike, isLiked, getLikeCount, isSubscribed } = useAppStore();
+  const { toggleLike, isLiked, getLikeCount, isSubscribed, getArtistAvatar } = useAppStore();
   const liked = isLiked(post.id);
   const likeCount = getLikeCount(post.id);
   const subscribed = isSubscribed(post.artistId);
@@ -46,11 +46,9 @@ export default function PostCard({ post, showArtist = true }: Props) {
           <div className="flex items-center gap-3 px-4 py-3">
             <Link href={`/artist/${artist.id}`}>
               <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
-                <Image
-                  src={artist.avatar}
+                <img
+                  src={getArtistAvatar(artist.id) ?? undefined}
                   alt={artist.name}
-                  width={36}
-                  height={36}
                   className="w-full h-full object-cover object-top"
                 />
               </div>

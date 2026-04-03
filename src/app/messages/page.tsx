@@ -17,7 +17,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function MessagesPage() {
-  const { followedArtists, unreadChats, getLastMessage } = useAppStore();
+  const { followedArtists, unreadChats, getLastMessage, getArtistAvatar } = useAppStore();
   const followed = artists.filter((a) => followedArtists.has(a.id));
 
   return (
@@ -51,11 +51,9 @@ export default function MessagesPage() {
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <div className="w-14 h-14 rounded-full overflow-hidden">
-                    <Image
-                      src={artist.avatar}
+                    <img
+                      src={getArtistAvatar(artist.id) ?? undefined}
                       alt={artist.name}
-                      width={56}
-                      height={56}
                       className="w-full h-full object-cover object-top"
                     />
                   </div>

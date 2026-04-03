@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { posts as initialPosts, comments as initialComments, notifications as initialNotifications, artists } from "@/data/mockData";
 import type { Comment, Notification } from "@/data/mockData";
+import { supabase } from "@/lib/supabase";
 
 export type ChatMessage = {
   id: string;
@@ -58,7 +59,10 @@ type AppStore = {
   unreadChats: Set<string>;
   myAvatar: string;
   myName: string;
-  artistModeId: string | null;
+
+  // Supabase auth
+  supabaseArtistId: string | null;
+  artistProfiles: Record<string, { bio: string; avatar: string }>;
 
   toggleLike: (postId: string) => void;
   toggleFollow: (artistId: string) => void;
@@ -69,7 +73,15 @@ type AppStore = {
   sendMessage: (artistId: string, text: string) => void;
   markChatRead: (artistId: string) => void;
   setMyProfile: (avatar: string, name: string) => void;
-  setArtistMode: (artistId: string | null) => void;
+
+  // Supabase auth actions
+  initArtistAuth: () => void;
+  signInAsArtist: (email: string, password: string) => Promise<string>;
+  signOutAsArtist: () => Promise<void>;
+  updateArtistProfile: (artistId: string, bio: string, avatar: string) => Promise<void>;
+
+  getArtistAvatar: (artistId: string) => string | undefined;
+  getArtistBio: (artistId: string) => string;
 
   isLiked: (postId: string) => boolean;
   isFollowed: (artistId: string) => boolean;
@@ -92,57 +104,123 @@ export const useAppStore = create<AppStore>((set, get) => ({
   unreadChats: new Set(["ziou", "haruki"]),
   myAvatar: DEFAULT_MY_AVATAR,
   myName: DEFAULT_MY_NAME,
-  artistModeId: null,
+  supabaseArtistId: null,
+  artistProfiles: {},
+
+  initArtistAuth: () => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const artistId = (session?.user?.user_metadata?.artist_id as string) ?? null;
+      set({ supabaseArtistId: artistId });
+      if (artistId) get()._loadArtistProfileFromDb(artistId);
+    });
+
+    // Subscribe to auth changes
+    supabase.auth.onAuthStateChange((_, session) => {
+      const artistId = (session?.user?.user_metadata?.artist_id as string) ?? null;
+      set({ supabaseArtistId: artistId });
+      if (artistId) get()._loadArtistProfileFromDb(artistId);
+    });
+  },
+
+  // Internal: load bio/avatar from Supabase DB into local cache
+  _loadArtistProfileFromDb: async (artistId: string) => {
+    const { data } = await supabase
+      .from("artist_profiles")
+      .select("bio, avatar_data")
+      .eq("artist_id", artistId)
+      .single();
+    if (data) {
+      set((state) => ({
+        artistProfiles: {
+          ...state.artistProfiles,
+          [artistId]: {
+            bio: data.bio ?? "",
+            avatar: data.avatar_data ?? "",
+          },
+        },
+      }));
+    }
+  },
+
+  signInAsArtist: async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    const artistId = (data.user?.user_metadata?.artist_id as string) ?? null;
+    if (!artistId) throw new Error("このアカウントはアーティストアカウントではありません");
+    set({ supabaseArtistId: artistId });
+    await get()._loadArtistProfileFromDb(artistId);
+    return artistId;
+  },
+
+  signOutAsArtist: async () => {
+    await supabase.auth.signOut();
+    set({ supabaseArtistId: null });
+  },
+
+  updateArtistProfile: async (artistId, bio, avatar) => {
+    // Update local cache immediately
+    set((state) => ({
+      artistProfiles: {
+        ...state.artistProfiles,
+        [artistId]: { bio, avatar },
+      },
+    }));
+    // Save to Supabase
+    await supabase
+      .from("artist_profiles")
+      .upsert({ artist_id: artistId, bio, avatar_data: avatar, updated_at: new Date().toISOString() });
+  },
+
+  getArtistAvatar: (artistId) => {
+    const override = get().artistProfiles[artistId];
+    if (override?.avatar) return override.avatar;
+    return artists.find((a) => a.id === artistId)?.avatar ?? undefined;
+  },
+
+  getArtistBio: (artistId) => {
+    const override = get().artistProfiles[artistId];
+    if (override?.bio !== undefined) return override.bio;
+    return artists.find((a) => a.id === artistId)?.bio ?? "";
+  },
 
   toggleLike: (postId) => {
     const { likedPosts, likeCount } = get();
     const isLiked = likedPosts.has(postId);
     const newLiked = new Set(likedPosts);
-    if (isLiked) {
-      newLiked.delete(postId);
-    } else {
-      newLiked.add(postId);
-    }
+    if (isLiked) newLiked.delete(postId);
+    else newLiked.add(postId);
     set({
       likedPosts: newLiked,
-      likeCount: {
-        ...likeCount,
-        [postId]: (likeCount[postId] || 0) + (isLiked ? -1 : 1),
-      },
+      likeCount: { ...likeCount, [postId]: (likeCount[postId] || 0) + (isLiked ? -1 : 1) },
     });
   },
 
   toggleFollow: (artistId) => {
     const { followedArtists } = get();
     const newFollowed = new Set(followedArtists);
-    if (newFollowed.has(artistId)) {
-      newFollowed.delete(artistId);
-    } else {
-      newFollowed.add(artistId);
-    }
+    if (newFollowed.has(artistId)) newFollowed.delete(artistId);
+    else newFollowed.add(artistId);
     set({ followedArtists: newFollowed });
   },
 
   toggleSubscribe: (artistId) => {
     const { subscribedArtists } = get();
     const newSubscribed = new Set(subscribedArtists);
-    if (newSubscribed.has(artistId)) {
-      newSubscribed.delete(artistId);
-    } else {
-      newSubscribed.add(artistId);
-    }
+    if (newSubscribed.has(artistId)) newSubscribed.delete(artistId);
+    else newSubscribed.add(artistId);
     set({ subscribedArtists: newSubscribed });
   },
 
   addComment: (postId, text) => {
-    const { artistModeId, myName, myAvatar } = get();
-    const artist = artistModeId ? artists.find((a) => a.id === artistModeId) : null;
+    const { supabaseArtistId, myName, myAvatar } = get();
+    const artist = supabaseArtistId ? artists.find((a) => a.id === supabaseArtistId) : null;
     const newComment: Comment = {
       id: `c${Date.now()}`,
       postId,
-      userId: artistModeId ?? "me",
+      userId: supabaseArtistId ?? "me",
       userName: artist ? artist.name : myName,
-      userAvatar: artist ? artist.avatar : myAvatar,
+      userAvatar: artist ? (get().getArtistAvatar(supabaseArtistId!) ?? artist.avatar) : myAvatar,
       text,
       createdAt: new Date().toISOString(),
     };
@@ -150,19 +228,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   setMyProfile: (avatar, name) => set({ myAvatar: avatar, myName: name }),
-  setArtistMode: (artistId) => set({ artistModeId: artistId }),
 
   markNotificationsRead: () => {
-    set({
-      notifications: get().notifications.map((n) => ({ ...n, read: true })),
-    });
+    set({ notifications: get().notifications.map((n) => ({ ...n, read: true })) });
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   sendMessage: (artistId, text) => {
-    const { artistModeId } = get();
-    const isArtistMode = artistModeId === artistId;
+    const { supabaseArtistId } = get();
+    const isArtistMode = supabaseArtistId === artistId;
     const newMsg: ChatMessage = {
       id: `msg${Date.now()}`,
       artistId,
@@ -171,7 +246,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
     set({ chatMessages: [...get().chatMessages, newMsg] });
-    // Auto-reply only in fan mode
     if (!isArtistMode) {
       const replies = [
         "ありがとう！嬉しいな😊",
@@ -180,12 +254,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         "次のライブで会おう！",
         "感謝してます！",
       ];
-      const replyText = replies[Math.floor(Math.random() * replies.length)];
       const replyMsg: ChatMessage = {
         id: `msg${Date.now() + 1}`,
         artistId,
         fromMe: false,
-        text: replyText,
+        text: replies[Math.floor(Math.random() * replies.length)],
         createdAt: new Date(Date.now() + 1500).toISOString(),
       };
       setTimeout(() => {
@@ -195,8 +268,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   markChatRead: (artistId) => {
-    const { unreadChats } = get();
-    const newUnread = new Set(unreadChats);
+    const newUnread = new Set(get().unreadChats);
     newUnread.delete(artistId);
     set({ unreadChats: newUnread });
   },

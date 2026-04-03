@@ -1,9 +1,9 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Users, ChevronLeft, Lock, Check } from "lucide-react";
+import { Crown, Users, ChevronLeft, Lock, Check, Pencil, X, Camera } from "lucide-react";
 import { artists, posts } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import PostCard from "@/components/PostCard";
@@ -16,7 +16,53 @@ function formatFollowers(n: number): string {
 export default function ArtistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const artist = artists.find((a) => a.id === id);
-  const { toggleFollow, isFollowed, toggleSubscribe, isSubscribed } = useAppStore();
+  const { toggleFollow, isFollowed, toggleSubscribe, isSubscribed, supabaseArtistId, updateArtistProfile, getArtistAvatar, getArtistBio } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const isMyArtist = mounted && supabaseArtistId === id;
+  const currentAvatar = getArtistAvatar(id);
+  const currentBio = getArtistBio(id);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editBio, setEditBio] = useState("");
+  const [editAvatar, setEditAvatar] = useState(artist?.avatar ?? "");
+  const [saved, setSaved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const openEdit = () => {
+    setEditBio(currentBio);
+    setEditAvatar(currentAvatar);
+    setEditOpen(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 200; canvas.height = 200;
+        const ctx = canvas.getContext("2d")!;
+        const size = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
+        setEditAvatar(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveEdit = async () => {
+    await updateArtistProfile(id, editBio.trim(), editAvatar);
+    setEditOpen(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   if (!artist) {
     return (
@@ -32,6 +78,12 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
   return (
     <div className="min-h-screen bg-black">
+      {/* 保存トースト */}
+      <div className={`fixed top-10 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-zinc-800 text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 whitespace-nowrap ${saved ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+        <Check size={14} className="text-green-400" />
+        プロフィールを保存しました
+      </div>
+
       {/* Back button */}
       <div className="absolute top-4 left-4 z-20">
         <Link
@@ -56,25 +108,40 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
       {/* Profile info */}
       <div className="px-4 -mt-12 relative z-10">
         <div className="flex items-end justify-between mb-4">
-          <Image
-            src={artist.avatar}
-            alt={artist.name}
-            width={80}
-            height={80}
-            className="w-20 h-20 rounded-full object-cover object-top border-4 border-black flex-shrink-0"
-            style={{ width: 80, height: 80 }}
-          />
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-black flex-shrink-0">
+              <img src={currentAvatar ?? undefined} alt={artist.name} className="w-full h-full object-cover object-top" />
+            </div>
+            {isMyArtist && (
+              <button
+                onClick={openEdit}
+                className="absolute -bottom-1 -right-1 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center"
+              >
+                <Camera size={12} className="text-white" />
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => toggleFollow(artist.id)}
-              className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
-                followed
-                  ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
-                  : "bg-white text-black"
-              }`}
-            >
-              {followed ? "フォロー中" : "フォロー"}
-            </button>
+            {isMyArtist ? (
+              <button
+                onClick={openEdit}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold bg-zinc-800 text-zinc-300 border border-zinc-700"
+              >
+                <Pencil size={13} />
+                編集
+              </button>
+            ) : (
+              <button
+                onClick={() => toggleFollow(artist.id)}
+                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
+                  followed
+                    ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                    : "bg-white text-black"
+                }`}
+              >
+                {followed ? "フォロー中" : "フォロー"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -86,7 +153,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
             )}
           </div>
           <p className="text-purple-400 text-sm font-medium mb-2">{artist.genre}</p>
-          <p className="text-zinc-400 text-sm leading-relaxed">{artist.bio}</p>
+          <p className="text-zinc-400 text-sm leading-relaxed">{currentBio}</p>
           <div className="flex items-center gap-1 mt-2">
             <Users size={14} className="text-zinc-500" />
             <span className="text-zinc-500 text-sm">{formatFollowers(artist.followers)} フォロワー</span>
@@ -154,6 +221,64 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
         {artistPosts.map((post) => (
           <PostCard key={post.id} post={post} showArtist={false} />
         ))}
+      </div>
+
+      {/* Edit Sheet */}
+      <div
+        className={`fixed inset-0 z-[60] bg-black/70 transition-opacity ${editOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setEditOpen(false)}
+      />
+      <div
+        className={`fixed inset-x-0 bottom-0 z-[70] max-w-md mx-auto bg-zinc-950 rounded-t-2xl flex flex-col transition-transform duration-300 ${editOpen ? "translate-y-0" : "translate-y-full"}`}
+        style={{ height: "80vh" }}
+      >
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 bg-zinc-700 rounded-full" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
+          <button onClick={() => setEditOpen(false)} className="text-zinc-400 p-1 -ml-1">
+            <X size={22} />
+          </button>
+          <h3 className="text-white font-bold text-base">プロフィールを編集</h3>
+          <button
+            onClick={saveEdit}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold px-5 py-2 rounded-full"
+          >
+            保存
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 pb-10">
+          {/* Avatar */}
+          <div className="flex flex-col items-center gap-2">
+            <button onClick={() => fileRef.current?.click()} className="relative">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-zinc-700">
+                {editAvatar && <img src={editAvatar} alt="avatar" className="w-full h-full object-cover object-top" />}
+              </div>
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                <Camera size={22} className="text-white" />
+              </div>
+            </button>
+            <p className="text-zinc-500 text-xs">タップして写真を変更</p>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          </div>
+
+          {/* Bio */}
+          <div>
+            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">
+              自己紹介
+            </label>
+            <textarea
+              value={editBio}
+              onChange={(e) => setEditBio(e.target.value)}
+              placeholder="アーティストの自己紹介を書いてみよう..."
+              maxLength={150}
+              rows={5}
+              className="w-full bg-zinc-900 text-white placeholder-zinc-600 text-base rounded-xl px-4 py-3.5 outline-none border border-zinc-800 focus:border-purple-500 transition-colors resize-none"
+            />
+            <p className="text-zinc-600 text-xs text-right mt-1">{editBio.length}/150</p>
+          </div>
+        </div>
       </div>
     </div>
   );

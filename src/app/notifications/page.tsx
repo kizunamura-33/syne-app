@@ -31,7 +31,7 @@ const typeColors = {
 };
 
 export default function NotificationsPage() {
-  const { notifications, markNotificationsRead } = useAppStore();
+  const { notifications, markNotificationsRead, getArtistAvatar } = useAppStore();
 
   useEffect(() => {
     const timer = setTimeout(() => markNotificationsRead(), 1000);
@@ -65,11 +65,9 @@ export default function NotificationsPage() {
               <div className="relative flex-shrink-0">
                 {artist && (
                   <div className="w-11 h-11 rounded-full overflow-hidden">
-                    <Image
-                      src={artist.avatar}
+                    <img
+                      src={getArtistAvatar(artist.id) ?? undefined}
                       alt={artist.name}
-                      width={44}
-                      height={44}
                       className="w-full h-full object-cover object-top"
                     />
                   </div>

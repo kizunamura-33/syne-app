@@ -10,7 +10,7 @@ import { useAppStore } from "@/store/useAppStore";
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
 
 export default function ProfilePage() {
-  const { followedArtists, subscribedArtists, setMyProfile, artistModeId, setArtistMode } = useAppStore();
+  const { followedArtists, subscribedArtists, setMyProfile, supabaseArtistId } = useAppStore();
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
 
@@ -24,10 +24,8 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState("");
   const [editAvatar, setEditAvatar] = useState(DEFAULT_AVATAR);
   const [saved, setSaved] = useState(false);
-  const [artistSheetOpen, setArtistSheetOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // localStorageから読み込み
   useEffect(() => {
     try {
       const stored = localStorage.getItem("syne_profile");
@@ -58,7 +56,6 @@ export default function ProfilePage() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
-      // canvasで200x200にリサイズして容量を抑える
       const img = new window.Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
@@ -66,9 +63,7 @@ export default function ProfilePage() {
         canvas.height = 200;
         const ctx = canvas.getContext("2d")!;
         const size = Math.min(img.width, img.height);
-        const sx = (img.width - size) / 2;
-        const sy = (img.height - size) / 2;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
+        ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
         setEditAvatar(canvas.toDataURL("image/jpeg", 0.8));
       };
       img.src = result;
@@ -87,10 +82,7 @@ export default function ProfilePage() {
     setAvatar(newAvatar);
     setMyProfile(newAvatar, newName);
     try {
-      localStorage.setItem(
-        "syne_profile",
-        JSON.stringify({ name: newName, handle: newHandle, bio: newBio, avatar: newAvatar })
-      );
+      localStorage.setItem("syne_profile", JSON.stringify({ name: newName, handle: newHandle, bio: newBio, avatar: newAvatar }));
     } catch {}
     setEditOpen(false);
     setSaved(true);
@@ -99,7 +91,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-black/90 backdrop-blur-md border-b border-zinc-800/50 px-4 py-3 flex items-center justify-between">
         <h1 className="text-2xl font-black tracking-widest bg-gradient-to-r from-purple-400 via-pink-400 to-rose-400 bg-clip-text text-transparent">
           SYNE
@@ -109,7 +100,6 @@ export default function ProfilePage() {
         </button>
       </header>
 
-      {/* 保存完了トースト */}
       <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-zinc-800 text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 whitespace-nowrap ${saved ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
         <Check size={14} className="text-green-400" />
         保存しました
@@ -205,32 +195,30 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Artist Mode */}
+        {/* Artist login */}
         <div className="mb-6">
-          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">アーティストモード</h3>
-          {artistModeId ? (
-            <div className="flex items-center justify-between bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-2xl p-3 border border-purple-500/30">
-              <div className="flex items-center gap-2">
-                <Mic size={14} className="text-purple-400" />
-                <span className="text-white text-sm font-semibold">
-                  {artists.find((a) => a.id === artistModeId)?.name} として操作中
-                </span>
+          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">アーティスト</h3>
+          {supabaseArtistId ? (
+            <div className="flex items-center gap-3 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-2xl p-3 border border-purple-500/30">
+              <Mic size={16} className="text-purple-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-white text-sm font-semibold">
+                  {artists.find((a) => a.id === supabaseArtistId)?.name}
+                </p>
+                <p className="text-purple-400 text-xs">ログイン中</p>
               </div>
-              <button
-                onClick={() => setArtistMode(null)}
-                className="text-xs text-zinc-400 font-medium px-3 py-1 rounded-full border border-zinc-700"
-              >
-                終了
-              </button>
+              <Link href={`/artist/${supabaseArtistId}`} className="text-xs text-purple-300 font-bold px-3 py-1 rounded-full border border-purple-500/40">
+                編集
+              </Link>
             </div>
           ) : (
-            <button
-              onClick={() => setArtistSheetOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-zinc-900 rounded-2xl p-3.5 border border-zinc-800 text-zinc-300 text-sm font-bold"
+            <Link
+              href="/artist-login"
+              className="flex items-center justify-center gap-2 w-full bg-zinc-900 rounded-2xl p-3.5 border border-zinc-800 text-zinc-300 text-sm font-bold"
             >
               <Mic size={15} />
-              アーティストとして操作する
-            </button>
+              アーティストとしてログイン
+            </Link>
           )}
         </div>
 
@@ -244,62 +232,20 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Artist Mode Sheet */}
-      <div
-        className={`fixed inset-0 z-[60] bg-black/70 transition-opacity ${artistSheetOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-        onClick={() => setArtistSheetOpen(false)}
-      />
-      <div
-        className={`fixed inset-x-0 bottom-0 z-[70] max-w-md mx-auto bg-zinc-950 rounded-t-2xl transition-transform duration-300 ${artistSheetOpen ? "translate-y-0" : "translate-y-full"}`}
-      >
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-zinc-700 rounded-full" />
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <h3 className="text-white font-bold">アーティストを選択</h3>
-          <button onClick={() => setArtistSheetOpen(false)}>
-            <X size={20} className="text-zinc-400" />
-          </button>
-        </div>
-        <div className="px-4 py-3 space-y-2 pb-8">
-          {artists.map((artist) => (
-            <button
-              key={artist.id}
-              onClick={() => { setArtistMode(artist.id); setArtistSheetOpen(false); }}
-              className="w-full flex items-center gap-3 bg-zinc-900 rounded-2xl p-3 border border-zinc-800 text-left"
-            >
-              <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                <img src={artist.avatar} alt={artist.name} className="w-full h-full object-cover object-top" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  <span className="text-white font-semibold text-sm">{artist.name}</span>
-                  {artist.verified && <Crown size={11} className="text-yellow-400 fill-yellow-400" />}
-                </div>
-                <p className="text-zinc-500 text-xs">{artist.genre}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-[60] bg-black/70 transition-opacity ${editOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={() => setEditOpen(false)}
       />
 
-      {/* Edit sheet — フルスクリーン近く */}
+      {/* Edit sheet */}
       <div
         className={`fixed inset-x-0 bottom-0 z-[70] max-w-md mx-auto bg-zinc-950 rounded-t-2xl flex flex-col transition-transform duration-300 ${editOpen ? "translate-y-0" : "translate-y-full"}`}
         style={{ height: "92vh" }}
       >
-        {/* Sheet handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 bg-zinc-700 rounded-full" />
         </div>
-
-        {/* Sheet header — 常に見える */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
           <button onClick={() => setEditOpen(false)} className="text-zinc-400 p-1 -ml-1">
             <X size={22} />
@@ -313,15 +259,9 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* スクロール可能なコンテンツ */}
         <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 pb-10">
-
-          {/* Avatar */}
           <div className="flex flex-col items-center gap-2">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="relative"
-            >
+            <button onClick={() => fileRef.current?.click()} className="relative">
               <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-zinc-700">
                 <img src={editAvatar} alt="avatar" className="w-full h-full object-cover object-top" />
               </div>
@@ -330,20 +270,11 @@ export default function ProfilePage() {
               </div>
             </button>
             <p className="text-zinc-500 text-xs">タップして写真を変更</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </div>
 
-          {/* Name */}
           <div>
-            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">
-              名前
-            </label>
+            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">名前</label>
             <input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
@@ -353,11 +284,8 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* Handle */}
           <div>
-            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">
-              ユーザーID
-            </label>
+            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">ユーザーID</label>
             <div className="flex items-center bg-zinc-900 rounded-xl border border-zinc-800 focus-within:border-purple-500 transition-colors">
               <span className="text-zinc-500 text-base pl-4 flex-shrink-0">@</span>
               <input
@@ -370,11 +298,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Bio */}
           <div>
-            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">
-              自己紹介
-            </label>
+            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">自己紹介</label>
             <textarea
               value={editBio}
               onChange={(e) => setEditBio(e.target.value)}
@@ -384,15 +309,6 @@ export default function ProfilePage() {
               className="w-full bg-zinc-900 text-white placeholder-zinc-600 text-base rounded-xl px-4 py-3.5 outline-none border border-zinc-800 focus:border-purple-500 transition-colors resize-none"
             />
             <p className="text-zinc-600 text-xs text-right mt-1">{editBio.length}/100</p>
-          </div>
-
-          {/* 使い方 */}
-          <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 space-y-2">
-            <p className="text-zinc-400 text-xs font-bold mb-1">使い方</p>
-            <p className="text-zinc-500 text-xs">📷 アイコン写真をタップ → カメラロールから選択</p>
-            <p className="text-zinc-500 text-xs">✏️ 名前・ID・自己紹介を入力</p>
-            <p className="text-zinc-500 text-xs">✅ 右上の「保存」をタップして完了</p>
-            <p className="text-zinc-500 text-xs">💾 ページを更新しても保持されます</p>
           </div>
         </div>
       </div>
