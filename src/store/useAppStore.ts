@@ -108,39 +108,33 @@ export const useAppStore = create<AppStore>((set, get) => ({
   artistProfiles: {},
 
   initArtistAuth: () => {
-    // Check current session
+    const loadProfile = async (artistId: string) => {
+      const { data } = await supabase
+        .from("artist_profiles")
+        .select("bio, avatar_data")
+        .eq("artist_id", artistId)
+        .single();
+      if (data) {
+        set((state) => ({
+          artistProfiles: {
+            ...state.artistProfiles,
+            [artistId]: { bio: data.bio ?? "", avatar: data.avatar_data ?? "" },
+          },
+        }));
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       const artistId = (session?.user?.user_metadata?.artist_id as string) ?? null;
       set({ supabaseArtistId: artistId });
-      if (artistId) get()._loadArtistProfileFromDb(artistId);
+      if (artistId) loadProfile(artistId);
     });
 
-    // Subscribe to auth changes
     supabase.auth.onAuthStateChange((_, session) => {
       const artistId = (session?.user?.user_metadata?.artist_id as string) ?? null;
       set({ supabaseArtistId: artistId });
-      if (artistId) get()._loadArtistProfileFromDb(artistId);
+      if (artistId) loadProfile(artistId);
     });
-  },
-
-  // Internal: load bio/avatar from Supabase DB into local cache
-  _loadArtistProfileFromDb: async (artistId: string) => {
-    const { data } = await supabase
-      .from("artist_profiles")
-      .select("bio, avatar_data")
-      .eq("artist_id", artistId)
-      .single();
-    if (data) {
-      set((state) => ({
-        artistProfiles: {
-          ...state.artistProfiles,
-          [artistId]: {
-            bio: data.bio ?? "",
-            avatar: data.avatar_data ?? "",
-          },
-        },
-      }));
-    }
   },
 
   signInAsArtist: async (email, password) => {
@@ -149,7 +143,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const artistId = (data.user?.user_metadata?.artist_id as string) ?? null;
     if (!artistId) throw new Error("このアカウントはアーティストアカウントではありません");
     set({ supabaseArtistId: artistId });
-    await get()._loadArtistProfileFromDb(artistId);
+    const { data: profile } = await supabase
+      .from("artist_profiles")
+      .select("bio, avatar_data")
+      .eq("artist_id", artistId)
+      .single();
+    if (profile) {
+      set((state) => ({
+        artistProfiles: {
+          ...state.artistProfiles,
+          [artistId]: { bio: profile.bio ?? "", avatar: profile.avatar_data ?? "" },
+        },
+      }));
+    }
     return artistId;
   },
 

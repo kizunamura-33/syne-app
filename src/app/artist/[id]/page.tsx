@@ -33,7 +33,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
   const openEdit = () => {
     setEditBio(currentBio);
-    setEditAvatar(currentAvatar);
+    setEditAvatar(currentAvatar ?? "");
     setEditOpen(true);
   };
 

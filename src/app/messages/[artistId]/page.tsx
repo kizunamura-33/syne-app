@@ -17,8 +17,8 @@ function formatTime(iso: string): string {
 export default function ChatPage({ params }: { params: Promise<{ artistId: string }> }) {
   const { artistId } = use(params);
   const artist = artists.find((a) => a.id === artistId);
-  const { chatMessages, sendMessage, markChatRead, myAvatar, artistModeId } = useAppStore();
-  const isArtistMode = artistModeId === artistId;
+  const { chatMessages, sendMessage, markChatRead, myAvatar, supabaseArtistId } = useAppStore();
+  const isArtistMode = supabaseArtistId === artistId;
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const messages = chatMessages.filter((m) => m.artistId === artistId);
