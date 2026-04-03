@@ -18,10 +18,13 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
   const { artistId } = use(params);
   const artist = artists.find((a) => a.id === artistId);
   const { chatMessages, sendMessage, markChatRead, myAvatar, supabaseArtistId } = useAppStore();
-  const isArtistMode = supabaseArtistId === artistId;
+  const [mounted, setMounted] = useState(false);
+  const isArtistMode = mounted && supabaseArtistId === artistId;
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const messages = chatMessages.filter((m) => m.artistId === artistId);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     markChatRead(artistId);
@@ -68,10 +71,12 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
               <Crown size={11} className="text-yellow-400 fill-yellow-400" />
             )}
           </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-            <span className="text-green-500 text-xs">オンライン</span>
-          </div>
+          {!isArtistMode && (
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+              <span className="text-green-500 text-xs">オンライン</span>
+            </div>
+          )}
         </div>
         <Link
           href={`/artist/${artist.id}`}
