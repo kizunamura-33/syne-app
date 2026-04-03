@@ -80,13 +80,13 @@ export default function PostCard({ post, showArtist = true }: Props) {
         {/* Content */}
         <div className="relative">
           {post.type === "video" && post.content ? (
-            <div className="relative aspect-square bg-zinc-900">
+            <div className="relative bg-zinc-900 flex items-center justify-center">
               <video
                 src={post.content}
                 poster={post.thumbnail}
                 controls
                 playsInline
-                className={`w-full h-full object-cover ${isLocked ? "blur-xl scale-105" : ""}`}
+                className={`w-full object-contain max-h-[80vh] ${isLocked ? "blur-xl scale-105" : ""}`}
               />
               {isLocked && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
