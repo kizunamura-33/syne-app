@@ -154,10 +154,23 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           </div>
           <p className="text-purple-400 text-sm font-medium mb-2">{artist.genre}</p>
           <p className="text-zinc-400 text-sm leading-relaxed">{currentBio}</p>
-          <div className="flex items-center gap-1 mt-2">
-            <Users size={14} className="text-zinc-500" />
-            <span className="text-zinc-500 text-sm">{formatFollowers(artist.followers)} フォロワー</span>
-          </div>
+          {isMyArtist ? (
+            <div className="flex gap-4 mt-3">
+              <div className="bg-zinc-900 rounded-xl px-4 py-2.5 text-center">
+                <p className="text-white font-black text-lg">{formatFollowers(artist.followers)}</p>
+                <p className="text-zinc-500 text-xs">フォロワー</p>
+              </div>
+              <div className="bg-zinc-900 rounded-xl px-4 py-2.5 text-center">
+                <p className="text-white font-black text-lg">{artist.monthlyPrice.toLocaleString()}<span className="text-sm font-bold">円</span></p>
+                <p className="text-zinc-500 text-xs">月額</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 mt-2">
+              <Users size={14} className="text-zinc-500" />
+              <span className="text-zinc-500 text-sm">{formatFollowers(artist.followers)} フォロワー</span>
+            </div>
+          )}
         </div>
 
         {/* Subscription card */}

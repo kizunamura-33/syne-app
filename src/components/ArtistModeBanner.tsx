@@ -22,14 +22,12 @@ export default function ArtistModeBanner() {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[80] max-w-md mx-auto">
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Mic size={13} className="text-white" />
-          <span className="text-white text-xs font-bold">アーティストモード：{artist.name}</span>
-        </div>
-        <button onClick={handleLogout} className="text-white/80 text-xs font-medium">
-          ログアウト
+    <div className="fixed top-2 right-2 z-[80]">
+      <div className="flex items-center gap-2 bg-zinc-900/90 backdrop-blur-sm border border-purple-500/40 rounded-full px-3 py-1.5">
+        <Mic size={11} className="text-purple-400" />
+        <span className="text-purple-300 text-[11px] font-bold">{artist.name}</span>
+        <button onClick={handleLogout} className="text-zinc-500 text-[11px] ml-1">
+          退出
         </button>
       </div>
     </div>

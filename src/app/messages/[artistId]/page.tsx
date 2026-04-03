@@ -95,17 +95,20 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
           <div className="flex-1 h-px bg-zinc-800" />
         </div>
 
-        {messages.map((msg) => (
+        {messages.map((msg) => {
+          // アーティストモード時は fromMe の表示を反転（ファンが送った=左、自分=右）
+          const isMine = isArtistMode ? !msg.fromMe : msg.fromMe;
+          return (
           <div
             key={msg.id}
-            className={`flex items-end gap-2 ${msg.fromMe ? "flex-row-reverse" : "flex-row"}`}
+            className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}
           >
-            {/* Artist avatar (only for artist messages) */}
-            {!msg.fromMe && (
+            {/* 相手のアバター */}
+            {!isMine && (
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mb-1">
                 <Image
-                  src={artist.avatar}
-                  alt={artist.name}
+                  src={isArtistMode ? (myAvatar || artist.avatar) : artist.avatar}
+                  alt={isArtistMode ? "ファン" : artist.name}
                   width={28}
                   height={28}
                   className="w-full h-full object-cover object-top"
@@ -113,10 +116,10 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
               </div>
             )}
 
-            <div className={`flex flex-col gap-1 max-w-[72%] ${msg.fromMe ? "items-end" : "items-start"}`}>
+            <div className={`flex flex-col gap-1 max-w-[72%] ${isMine ? "items-end" : "items-start"}`}>
               <div
                 className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                  msg.fromMe
+                  isMine
                     ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-br-sm"
                     : "bg-zinc-800 text-white rounded-bl-sm"
                 }`}
@@ -126,7 +129,8 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
               <span className="text-zinc-600 text-[10px]">{formatTime(msg.createdAt)}</span>
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {messages.length === 0 && (
           <div className="text-center py-12">
