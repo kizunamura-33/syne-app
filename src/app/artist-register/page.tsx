@@ -4,33 +4,40 @@ import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Mic } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, Mic } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function ArtistLoginPage() {
+export default function ArtistRegisterPage() {
   const router = useRouter();
-  const { signIn, isFirebaseConfigured } = useAuth();
+  const { signUp, isFirebaseConfigured } = useAuth();
 
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: FormEvent) => {
+  const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!displayName || !email || !password) return;
+    if (password.length < 6) {
+      toast.error("パスワードは6文字以上にしてください");
+      return;
+    }
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
-      toast.success("ログインしました");
+      await signUp(email.trim(), password, displayName.trim(), true); // isArtist = true
+      toast.success("アーティストアカウントを作成しました！");
       router.push("/create");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("invalid-credential") || msg.includes("wrong-password")) {
-        toast.error("メールアドレスまたはパスワードが間違っています");
+      if (msg.includes("email-already-in-use")) {
+        toast.error("このメールアドレスはすでに使用されています");
+      } else if (msg.includes("weak-password")) {
+        toast.error("パスワードが弱すぎます");
       } else {
-        toast.error("ログインに失敗しました");
+        toast.error("登録に失敗しました");
       }
     } finally {
       setLoading(false);
@@ -50,13 +57,13 @@ export default function ArtistLoginPage() {
     <div className="min-h-screen bg-[#050505] flex flex-col">
       <div className="fixed inset-0 pointer-events-none">
         <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full opacity-20 blur-3xl"
-          style={{ background: "radial-gradient(circle, #9333ea 0%, transparent 70%)" }}
+          className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-15 blur-3xl"
+          style={{ background: "radial-gradient(circle, #ec4899 0%, transparent 70%)" }}
         />
       </div>
 
       <div className="relative z-10 pt-14 px-6 pb-10">
-        <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 mb-10">
+        <Link href="/artist-login" className="inline-flex items-center gap-2 text-zinc-400 mb-10">
           <ArrowLeft size={18} />
           <span className="text-sm">戻る</span>
         </Link>
@@ -76,11 +83,24 @@ export default function ArtistLoginPage() {
           </h1>
           <p className="font-display text-4xl font-bold tracking-tight mb-2"
             style={{ background: "linear-gradient(135deg, #9333ea, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            ログイン
+            新規登録
           </p>
-          <p className="text-zinc-500 text-sm mb-10">アーティスト専用アカウントでログインしてください</p>
+          <p className="text-zinc-500 text-sm mb-10">アーティストとしてアカウントを作成します</p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="relative">
+              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="アーティスト名"
+                required
+                maxLength={30}
+                className="input-syne pl-10"
+              />
+            </div>
+
             <div className="relative">
               <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
               <input
@@ -100,9 +120,9 @@ export default function ArtistLoginPage() {
                 type={showPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="パスワード"
+                placeholder="パスワード（6文字以上）"
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
                 className="input-syne pl-10 pr-10"
               />
               <button
@@ -116,7 +136,7 @@ export default function ArtistLoginPage() {
 
             <motion.button
               type="submit"
-              disabled={loading || !email || !password}
+              disabled={loading || !displayName || !email || !password}
               whileTap={{ scale: 0.97 }}
               className="btn-primary w-full mt-2"
             >
@@ -126,20 +146,17 @@ export default function ArtistLoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  ログイン中...
+                  登録中...
                 </span>
-              ) : "ログイン"}
+              ) : "アーティストとして登録"}
             </motion.button>
           </form>
 
-          <p className="text-zinc-600 text-xs text-center mt-6 leading-relaxed">
-            アーティストアカウントはSYNE運営が発行します。<br />
-            お問い合わせは運営までご連絡ください。
-          </p>
-
-          <p className="text-center text-zinc-700 text-xs mt-4">
-            ファンの方は{" "}
-            <Link href="/login" className="text-zinc-500 underline">こちら</Link>
+          <p className="text-center text-zinc-500 text-sm mt-8">
+            すでにアカウントをお持ちの方は{" "}
+            <Link href="/artist-login" className="text-purple-400 font-semibold">
+              ログイン
+            </Link>
           </p>
         </motion.div>
       </div>

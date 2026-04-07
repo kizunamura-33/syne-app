@@ -60,6 +60,7 @@ type AppStore = {
   unreadChats: Set<string>;
   myAvatar: string;
   myName: string;
+  artists: typeof artists;
 
   // Supabase auth
   supabaseArtistId: string | null;
@@ -111,6 +112,7 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   unreadChats: new Set(["ziou", "haruki"]),
   myAvatar: DEFAULT_MY_AVATAR,
   myName: DEFAULT_MY_NAME,
+  artists,
   supabaseArtistId: null,
   authInitialized: false,
   artistProfiles: {},

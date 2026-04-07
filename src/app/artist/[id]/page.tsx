@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Crown, Users, ChevronLeft, Lock, Check, Pencil, X, Camera } from "lucide-react";
 import { artists, posts } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
-import PostCard from "@/components/PostCard";
+import PostCard, { UnifiedPost } from "@/components/PostCard";
 
 function formatFollowers(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -238,9 +238,15 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
       </div>
 
       <div>
-        {artistPosts.map((post) => (
-          <PostCard key={post.id} post={post} showArtist={false} />
-        ))}
+        {artistPosts.map((post) => {
+          const unified: UnifiedPost = {
+            _source: "mock" as const,
+            ...post,
+            authorName: artist?.name ?? id,
+            authorPhoto: getArtistAvatar(id) ?? artist?.avatar ?? "",
+          };
+          return <PostCard key={post.id} post={unified} />;
+        })}
       </div>
 
       {/* Edit Sheet */}

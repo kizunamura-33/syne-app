@@ -3,48 +3,39 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Settings, ChevronRight, X, Camera, Check, Mic } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Crown, Settings, ChevronRight, X, Camera, Check, LogOut, Mic, LogIn, Trash2 } from "lucide-react";
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuth } from "@/contexts/AuthContext";
+import { updateUserProfile } from "@/lib/firestore";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
 
 export default function ProfilePage() {
-  const { followedArtists, subscribedArtists, setMyProfile, supabaseArtistId } = useAppStore();
+  const router = useRouter();
+  const { user, userProfile, logout, deleteAccount, refreshProfile } = useAuth();
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { followedArtists, subscribedArtists } = useAppStore();
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
+  const isArtist = userProfile?.isArtist === true;
 
-  const [name, setName] = useState("あなた");
-  const [handle, setHandle] = useState("fan_user");
-  const [bio, setBio] = useState("");
-  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editHandle, setEditHandle] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editAvatar, setEditAvatar] = useState(DEFAULT_AVATAR);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("syne_profile");
-      if (stored) {
-        const p = JSON.parse(stored);
-        if (p.name) setName(p.name);
-        if (p.handle) setHandle(p.handle);
-        if (p.bio !== undefined) setBio(p.bio);
-        if (p.avatar) {
-          setAvatar(p.avatar);
-          setMyProfile(p.avatar, p.name || "あなた");
-        }
-      }
-    } catch {}
-  }, []);
+  const displayName = userProfile?.displayName || user?.displayName || "ユーザー";
+  const avatar = userProfile?.photoURL || user?.photoURL || DEFAULT_AVATAR;
+  const bio = userProfile?.bio || "";
 
   const openEdit = () => {
-    setEditName(name);
-    setEditHandle(handle);
+    setEditName(displayName);
     setEditBio(bio);
     setEditAvatar(avatar);
     setEditOpen(true);
@@ -71,23 +62,66 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const saveEdit = () => {
-    const newName = editName.trim() || name;
-    const newHandle = editHandle.trim().replace(/\s/g, "") || handle;
-    const newBio = editBio.trim();
-    const newAvatar = editAvatar;
-    setName(newName);
-    setHandle(newHandle);
-    setBio(newBio);
-    setAvatar(newAvatar);
-    setMyProfile(newAvatar, newName);
+  const saveEdit = async () => {
+    if (!user) return;
+    setSaving(true);
     try {
-      localStorage.setItem("syne_profile", JSON.stringify({ name: newName, handle: newHandle, bio: newBio, avatar: newAvatar }));
-    } catch {}
-    setEditOpen(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+      await updateUserProfile(user.uid, {
+        displayName: editName.trim() || displayName,
+        bio: editBio.trim(),
+        photoURL: editAvatar,
+      });
+      await refreshProfile();
+      setEditOpen(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      router.push("/");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("requires-recent-login")) {
+        alert("セキュリティのため、一度ログアウトして再ログイン後に退会してください。");
+      } else {
+        alert("退会に失敗しました。");
+      }
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 text-center gap-4 pb-20">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+          <LogIn size={28} className="text-white" />
+        </div>
+        <p className="text-white font-bold text-lg">ログインしてください</p>
+        <p className="text-zinc-500 text-sm">アカウントにログインしてプロフィールを表示</p>
+        <button onClick={() => router.push("/login")} className="btn-primary mt-2 px-8">
+          ログイン
+        </button>
+        <button onClick={() => router.push("/register")} className="text-zinc-400 text-sm">
+          アカウントを作成 →
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black">
@@ -105,7 +139,7 @@ export default function ProfilePage() {
         保存しました
       </div>
 
-      <div className="px-4 py-6">
+      <div className="px-4 py-6 pb-32">
         {/* Profile row */}
         <div className="flex items-center gap-4 mb-3">
           <div className="relative flex-shrink-0">
@@ -114,8 +148,16 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-white font-bold text-lg leading-tight">{name}</h2>
-            <p className="text-zinc-500 text-sm">@{handle}</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-white font-bold text-lg leading-tight">{displayName}</h2>
+              {isArtist && (
+                <span className="flex items-center gap-1 bg-purple-500/20 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-500/30">
+                  <Mic size={9} />
+                  アーティスト
+                </span>
+              )}
+            </div>
+            <p className="text-zinc-500 text-sm">{user.email}</p>
             {bio && <p className="text-zinc-400 text-xs mt-1 leading-relaxed">{bio}</p>}
           </div>
           <button
@@ -195,42 +237,52 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Artist login */}
-        <div className="mb-6">
-          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">アーティスト</h3>
-          {supabaseArtistId ? (
-            <div className="flex items-center gap-3 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-2xl p-3 border border-purple-500/30">
-              <Mic size={16} className="text-purple-400 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-white text-sm font-semibold">
-                  {artists.find((a) => a.id === supabaseArtistId)?.name}
-                </p>
-                <p className="text-purple-400 text-xs">ログイン中</p>
-              </div>
-              <Link href={`/artist/${supabaseArtistId}`} className="text-xs text-purple-300 font-bold px-3 py-1 rounded-full border border-purple-500/40">
-                編集
-              </Link>
-            </div>
-          ) : (
-            <Link
-              href="/artist-login"
-              className="flex items-center justify-center gap-2 w-full bg-zinc-900 rounded-2xl p-3.5 border border-zinc-800 text-zinc-300 text-sm font-bold"
-            >
-              <Mic size={15} />
-              アーティストとしてログイン
-            </Link>
-          )}
-        </div>
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 p-4 rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-red-400 hover:border-red-500/30 transition-all"
+        >
+          <LogOut size={18} />
+          <span className="text-sm font-medium">ログアウト</span>
+        </button>
 
-        {/* Tip */}
-        <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 rounded-2xl p-4 border border-purple-500/20">
-          <h3 className="text-white font-bold text-sm mb-1">投げ銭機能</h3>
-          <p className="text-zinc-400 text-xs mb-3">ライブ配信中にアーティストを応援しよう</p>
-          <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm py-2.5 rounded-xl">
-            ライブを探す
-          </button>
-        </div>
+        {/* Delete account */}
+        <button
+          onClick={() => setDeleteConfirm(true)}
+          className="w-full flex items-center gap-3 p-4 rounded-xl border border-zinc-900 text-zinc-700 hover:text-red-500 hover:border-red-900/50 transition-all"
+        >
+          <Trash2 size={16} />
+          <span className="text-sm">退会する</span>
+        </button>
       </div>
+
+      {/* 退会確認モーダル */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/80" onClick={() => setDeleteConfirm(false)} />
+          <div className="relative bg-zinc-900 rounded-2xl p-6 w-full max-w-sm border border-zinc-800">
+            <h3 className="text-white font-bold text-lg mb-2">退会しますか？</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+              アカウントを削除すると、すべてのデータが失われます。この操作は取り消せません。
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="flex-1 py-3 rounded-xl border border-zinc-700 text-zinc-300 text-sm font-medium"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white text-sm font-bold disabled:opacity-50"
+              >
+                {deleting ? "削除中..." : "退会する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Backdrop */}
       <div
@@ -241,7 +293,7 @@ export default function ProfilePage() {
       {/* Edit sheet */}
       <div
         className={`fixed inset-x-0 bottom-0 z-[70] max-w-md mx-auto bg-zinc-950 rounded-t-2xl flex flex-col transition-transform duration-300 ${editOpen ? "translate-y-0" : "translate-y-full"}`}
-        style={{ height: "92vh" }}
+        style={{ height: "80vh" }}
       >
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 bg-zinc-700 rounded-full" />
@@ -253,9 +305,10 @@ export default function ProfilePage() {
           <h3 className="text-white font-bold text-base">プロフィールを編集</h3>
           <button
             onClick={saveEdit}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold px-5 py-2 rounded-full"
+            disabled={saving}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold px-5 py-2 rounded-full disabled:opacity-50"
           >
-            保存
+            {saving ? "保存中..." : "保存"}
           </button>
         </div>
 
@@ -282,20 +335,6 @@ export default function ProfilePage() {
               maxLength={30}
               className="w-full bg-zinc-900 text-white placeholder-zinc-600 text-base rounded-xl px-4 py-3.5 outline-none border border-zinc-800 focus:border-purple-500 transition-colors"
             />
-          </div>
-
-          <div>
-            <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block mb-2">ユーザーID</label>
-            <div className="flex items-center bg-zinc-900 rounded-xl border border-zinc-800 focus-within:border-purple-500 transition-colors">
-              <span className="text-zinc-500 text-base pl-4 flex-shrink-0">@</span>
-              <input
-                value={editHandle}
-                onChange={(e) => setEditHandle(e.target.value.replace(/\s/g, ""))}
-                placeholder="user_id"
-                maxLength={20}
-                className="flex-1 bg-transparent text-white placeholder-zinc-600 text-base px-2 py-3.5 outline-none"
-              />
-            </div>
           </div>
 
           <div>

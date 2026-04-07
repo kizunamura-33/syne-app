@@ -4,13 +4,13 @@ import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Mic } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Globe } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function ArtistLoginPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const { signIn, isFirebaseConfigured } = useAuth();
+  const { signIn, signInWithGoogle, isFirebaseConfigured } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,11 +24,13 @@ export default function ArtistLoginPage() {
     try {
       await signIn(email.trim(), password);
       toast.success("ログインしました");
-      router.push("/create");
+      router.push("/");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
+      const msg = err instanceof Error ? err.message : "ログインに失敗しました";
       if (msg.includes("invalid-credential") || msg.includes("wrong-password")) {
         toast.error("メールアドレスまたはパスワードが間違っています");
+      } else if (msg.includes("user-not-found")) {
+        toast.error("アカウントが見つかりません");
       } else {
         toast.error("ログインに失敗しました");
       }
@@ -37,17 +39,41 @@ export default function ArtistLoginPage() {
     }
   };
 
+  const handleGoogle = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      toast.success("Googleでログインしました");
+      router.push("/");
+    } catch {
+      toast.error("Googleログインに失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isFirebaseConfigured) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center gap-4 bg-[#050505]">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-syne flex items-center justify-center mb-2">
+          <Mail size={28} className="text-white" />
+        </div>
         <h1 className="text-white text-xl font-bold">Firebase 未設定</h1>
-        <Link href="/" className="text-purple-400 text-sm">← ホームに戻る</Link>
+        <p className="text-zinc-400 text-sm leading-relaxed max-w-xs">
+          .env.local に Firebase の設定を追加してください。
+          <br />
+          .env.local.example を参考にしてください。
+        </p>
+        <Link href="/" className="text-purple-400 text-sm mt-2">
+          ← ホームに戻る
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#050505] flex flex-col">
+      {/* 背景グラデーション */}
       <div className="fixed inset-0 pointer-events-none">
         <div
           className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full opacity-20 blur-3xl"
@@ -55,7 +81,8 @@ export default function ArtistLoginPage() {
         />
       </div>
 
-      <div className="relative z-10 pt-14 px-6 pb-10">
+      {/* ヘッダー */}
+      <div className="relative z-10 pt-14 px-6">
         <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 mb-10">
           <ArrowLeft size={18} />
           <span className="text-sm">戻る</span>
@@ -66,21 +93,15 @@ export default function ArtistLoginPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
-            style={{ background: "linear-gradient(135deg, #9333ea 0%, #ec4899 100%)" }}>
-            <Mic size={26} className="text-white" />
-          </div>
-
-          <h1 className="font-display text-4xl font-bold text-white tracking-tight mb-1">
-            アーティスト
+          {/* ロゴ */}
+          <h1 className="font-display text-5xl font-bold text-gradient tracking-tight mb-2">
+            SYNE
           </h1>
-          <p className="font-display text-4xl font-bold tracking-tight mb-2"
-            style={{ background: "linear-gradient(135deg, #9333ea, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            ログイン
-          </p>
-          <p className="text-zinc-500 text-sm mb-10">アーティスト専用アカウントでログインしてください</p>
+          <p className="text-zinc-400 text-base mb-10">おかえりなさい</p>
 
+          {/* フォーム */}
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* メール */}
             <div className="relative">
               <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
               <input
@@ -94,6 +115,7 @@ export default function ArtistLoginPage() {
               />
             </div>
 
+            {/* パスワード */}
             <div className="relative">
               <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
               <input
@@ -114,6 +136,7 @@ export default function ArtistLoginPage() {
               </button>
             </div>
 
+            {/* ログインボタン */}
             <motion.button
               type="submit"
               disabled={loading || !email || !password}
@@ -128,18 +151,36 @@ export default function ArtistLoginPage() {
                   </svg>
                   ログイン中...
                 </span>
-              ) : "ログイン"}
+              ) : (
+                "ログイン"
+              )}
             </motion.button>
           </form>
 
-          <p className="text-zinc-600 text-xs text-center mt-6 leading-relaxed">
-            アーティストアカウントはSYNE運営が発行します。<br />
-            お問い合わせは運営までご連絡ください。
-          </p>
+          {/* セパレーター */}
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-white/8" />
+            <span className="text-zinc-600 text-xs">または</span>
+            <div className="flex-1 h-px bg-white/8" />
+          </div>
 
-          <p className="text-center text-zinc-700 text-xs mt-4">
-            ファンの方は{" "}
-            <Link href="/login" className="text-zinc-500 underline">こちら</Link>
+          {/* Google ログイン */}
+          <motion.button
+            onClick={handleGoogle}
+            disabled={loading}
+            whileTap={{ scale: 0.97 }}
+            className="btn-ghost w-full flex items-center justify-center gap-3"
+          >
+            <Globe size={18} />
+            Google でログイン
+          </motion.button>
+
+          {/* 登録へのリンク */}
+          <p className="text-center text-zinc-500 text-sm mt-8">
+            アカウントがない？{" "}
+            <Link href="/register" className="text-purple-400 font-semibold">
+              新規登録
+            </Link>
           </p>
         </motion.div>
       </div>
