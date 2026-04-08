@@ -67,8 +67,10 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
+      // Authトークンを強制更新
+      await user.getIdToken(true);
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 8000)
+        setTimeout(() => reject(new Error("timeout")), 10000)
       );
       await Promise.race([
         updateUserProfile(user.uid, {

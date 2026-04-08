@@ -85,7 +85,10 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>)
 }
 
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  await setDoc(doc(db, "users", uid), { ...data }, { merge: true });
+  const ref = doc(db, "users", uid);
+  console.log("[updateUserProfile] writing to:", ref.path, "data keys:", Object.keys(data));
+  await setDoc(ref, { ...data }, { merge: true });
+  console.log("[updateUserProfile] write complete");
 }
 
 export async function deleteUserProfile(uid: string) {
