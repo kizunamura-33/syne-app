@@ -84,11 +84,38 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>)
   });
 }
 
-export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  const ref = doc(db, "users", uid);
-  console.log("[updateUserProfile] writing to:", ref.path, "data keys:", Object.keys(data));
-  await setDoc(ref, { ...data }, { merge: true });
-  console.log("[updateUserProfile] write complete");
+export async function updateUserProfile(
+  uid: string,
+  data: Partial<UserProfile>,
+  idToken?: string
+) {
+  // IDトークンがある場合はREST APIで直接書き込み（SDK問題の回避）
+  if (idToken) {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const fields: Record<string, { stringValue?: string; booleanValue?: boolean }> = {};
+    if (data.displayName !== undefined) fields.displayName = { stringValue: data.displayName };
+    if (data.bio !== undefined) fields.bio = { stringValue: data.bio };
+    if (data.photoURL !== undefined) fields.photoURL = { stringValue: data.photoURL };
+
+    const fieldPaths = Object.keys(fields).map((k) => `updateMask.fieldPaths=${k}`).join("&");
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}?${fieldPaths}`;
+
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(JSON.stringify(err));
+    }
+    return;
+  }
+  // fallback: SDK
+  await setDoc(doc(db, "users", uid), { ...data }, { merge: true });
 }
 
 export async function deleteUserProfile(uid: string) {

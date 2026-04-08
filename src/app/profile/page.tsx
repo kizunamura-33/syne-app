@@ -67,7 +67,7 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      console.log("[saveEdit] start, uid:", user.uid);
+      const idToken = await user.getIdToken();
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), 10000)
       );
@@ -76,7 +76,7 @@ export default function ProfilePage() {
           displayName: editName.trim() || displayName,
           bio: editBio.trim(),
           photoURL: editAvatar,
-        }),
+        }, idToken),
         timeout,
       ]);
       setEditOpen(false);
