@@ -67,18 +67,30 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      await updateUserProfile(user.uid, {
-        displayName: editName.trim() || displayName,
-        bio: editBio.trim(),
-        photoURL: editAvatar,
-      });
-      await refreshProfile();
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 8000)
+      );
+      await Promise.race([
+        updateUserProfile(user.uid, {
+          displayName: editName.trim() || displayName,
+          bio: editBio.trim(),
+          photoURL: editAvatar,
+        }),
+        timeout,
+      ]);
       setEditOpen(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      // バックグラウンドでプロフィールを更新
+      refreshProfile().catch(console.error);
     } catch (err) {
       console.error("プロフィール保存エラー:", err);
-      toast.error("保存に失敗しました。もう一度お試しください。");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "timeout") {
+        toast.error("保存がタイムアウトしました。Firestoreのルールを確認してください。");
+      } else {
+        toast.error("保存に失敗しました: " + msg);
+      }
     } finally {
       setSaving(false);
     }
