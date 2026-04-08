@@ -1,6 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { initializeFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const isConfigured =
@@ -22,20 +22,14 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
-if (isConfigured) {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  auth = getAuth(app);
-  db = getFirestore(app);
+app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+auth = getAuth(app);
+db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+});
+try {
   storage = getStorage(app);
-} else {
-  // プレースホルダー（ビルド時のSSGエラーを防ぐ）
-  if (typeof window !== "undefined") {
-    // クライアントサイドのみ初期化（APIキー未設定の場合はスキップ）
-  }
-  // 型を満たすためダミーで初期化（実際には使用されない）
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  auth = getAuth(app);
-  db = getFirestore(app);
+} catch {
   storage = getStorage(app);
 }
 
