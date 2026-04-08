@@ -85,7 +85,7 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>)
 }
 
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  await updateDoc(doc(db, "users", uid), { ...data });
+  await setDoc(doc(db, "users", uid), { ...data }, { merge: true });
 }
 
 export async function deleteUserProfile(uid: string) {

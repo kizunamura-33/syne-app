@@ -9,6 +9,7 @@ import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/lib/firestore";
+import toast from "react-hot-toast";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
 
@@ -76,7 +77,8 @@ export default function ProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      console.error(err);
+      console.error("プロフィール保存エラー:", err);
+      toast.error("保存に失敗しました。もう一度お試しください。");
     } finally {
       setSaving(false);
     }
