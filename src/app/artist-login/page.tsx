@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Mic } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function ArtistLoginPage() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function ArtistLoginPage() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,6 +37,22 @@ export default function ArtistLoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast.error("メールアドレスを入力してください");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      toast.success("パスワードリセットメールを送信しました");
+    } catch {
+      toast.error("メールの送信に失敗しました。アドレスを確認してください");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -132,7 +151,16 @@ export default function ArtistLoginPage() {
             </motion.button>
           </form>
 
-          <p className="text-zinc-600 text-xs text-center mt-6 leading-relaxed">
+          <button
+            type="button"
+            onClick={handlePasswordReset}
+            disabled={resetLoading}
+            className="w-full text-center text-zinc-500 text-xs mt-4 underline"
+          >
+            {resetLoading ? "送信中..." : "パスワードをお忘れの方はこちら"}
+          </button>
+
+          <p className="text-zinc-600 text-xs text-center mt-4 leading-relaxed">
             アーティストアカウントはSYNE運営が発行します。<br />
             お問い合わせは運営までご連絡ください。
           </p>
