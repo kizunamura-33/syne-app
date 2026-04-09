@@ -161,7 +161,7 @@ export default function PostCard({ post, onCommentOpen }: PostCardProps) {
     setLiking(true);
     const newLiked = !liked;
     setLiked(newLiked);
-    setCurrentLikes((c) => (newLiked ? c + 1 : c - 1));
+    setCurrentLikes((c) => (newLiked ? c + 1 : Math.max(0, c - 1)));
     if (newLiked) {
       setShowHeart(true);
       setTimeout(() => setShowHeart(false), 900);
