@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import { X, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
@@ -171,11 +170,9 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
                     <div key={c.id} className="flex gap-3">
                       <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
                         {photo ? (
-                          <Image
+                          <img
                             src={photo}
                             alt={name}
-                            width={32}
-                            height={32}
                             className="w-full h-full object-cover object-top"
                           />
                         ) : (

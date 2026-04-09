@@ -136,6 +136,17 @@ async function doSet(path: string, data: Record<string, unknown>): Promise<void>
   if (!res.ok) throw new Error(`SET ${path} failed: ${res.status} ${await res.text()}`);
 }
 
+async function doPatch(path: string, data: Record<string, unknown>): Promise<void> {
+  const token = await getToken();
+  const masks = Object.keys(data).map((k) => `updateMask.fieldPaths=${k}`).join("&");
+  const res = await fetch(`${BASE}/${path}?${masks}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ fields: encodeObj(data) }),
+  });
+  if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status} ${await res.text()}`);
+}
+
 async function doDelete(path: string): Promise<void> {
   const token = await getToken();
   const h: Record<string, string> = {};
@@ -145,22 +156,10 @@ async function doDelete(path: string): Promise<void> {
 }
 
 async function doIncrement(path: string, field: string, amount: number): Promise<void> {
-  const token = await getToken();
-  const fullPath = `projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:batchWrite`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      writes: [{
-        transform: {
-          document: fullPath,
-          fieldTransforms: [{ fieldPath: field, increment: { integerValue: String(amount) } }],
-        },
-      }],
-    }),
-  });
-  if (!res.ok) throw new Error(`INCREMENT ${path}.${field} failed: ${res.status}`);
+  const doc = await doGet(path);
+  if (!doc) return;
+  const current = typeof doc[field] === "number" ? (doc[field] as number) : 0;
+  await doPatch(path, { [field]: current + amount });
 }
 
 interface QueryFilter { field: string; op: string; value: unknown }

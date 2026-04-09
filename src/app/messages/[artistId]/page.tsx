@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronLeft, Crown, Send } from "lucide-react";
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("ja-JP", {
@@ -17,7 +18,9 @@ function formatTime(iso: string): string {
 export default function ChatPage({ params }: { params: Promise<{ artistId: string }> }) {
   const { artistId } = use(params);
   const artist = artists.find((a) => a.id === artistId);
+  const { user, userProfile } = useAuth();
   const { chatMessages, sendMessage, markChatRead, myAvatar, supabaseArtistId } = useAppStore();
+  const myPhoto = userProfile?.photoURL ?? user?.photoURL ?? myAvatar;
   const [mounted, setMounted] = useState(false);
   const isArtistMode = mounted && supabaseArtistId === artistId;
   const [text, setText] = useState("");
@@ -107,7 +110,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
             {!isMine && (
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mb-1">
                 <Image
-                  src={isArtistMode ? (myAvatar || artist.avatar) : artist.avatar}
+                  src={isArtistMode ? (myPhoto || artist.avatar) : artist.avatar}
                   alt={isArtistMode ? "ファン" : artist.name}
                   width={28}
                   height={28}
@@ -155,7 +158,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 flex items-center gap-3 z-[60]">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
           <img
-            src={isArtistMode ? artist.avatar : myAvatar}
+            src={isArtistMode ? artist.avatar : myPhoto}
             alt="me"
             className="w-full h-full object-cover object-top"
           />
