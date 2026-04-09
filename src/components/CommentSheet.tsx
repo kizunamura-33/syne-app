@@ -60,16 +60,33 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
     if (!text.trim() || submitting) return;
     setSubmitting(true);
     const body = text.trim();
-    setText("");
 
     if (isFirestorePost && user) {
-      await addFirestoreComment(postId, {
-        authorId: user.uid,
-        authorName: userProfile?.displayName ?? user.displayName ?? "名無し",
-        authorPhoto: userProfile?.photoURL ?? user.photoURL ?? "",
-        content: body,
-      });
+      try {
+        const commentId = await addFirestoreComment(postId, {
+          authorId: user.uid,
+          authorName: userProfile?.displayName ?? user.displayName ?? "名無し",
+          authorPhoto: userProfile?.photoURL ?? user.photoURL ?? "",
+          content: body,
+        });
+        setText("");
+        setFirestoreComments((prev) => [
+          ...prev,
+          {
+            id: commentId,
+            postId,
+            authorId: user.uid,
+            authorName: userProfile?.displayName ?? user.displayName ?? "名無し",
+            authorPhoto: userProfile?.photoURL ?? user.photoURL ?? "",
+            content: body,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      } catch (err) {
+        console.error("コメント送信エラー:", err);
+      }
     } else {
+      setText("");
       addMockComment(postId, body);
     }
     setSubmitting(false);
