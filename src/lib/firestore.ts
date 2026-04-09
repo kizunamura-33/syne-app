@@ -66,7 +66,30 @@ export type FirestoreComment = {
 };
 
 // ─── ユーザープロフィール ──────────────────────────────
-export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+export async function getUserProfile(uid: string, idToken?: string): Promise<UserProfile | null> {
+  if (idToken) {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.fields) return null;
+    const f = data.fields;
+    return {
+      id: uid,
+      displayName: f.displayName?.stringValue ?? "",
+      email: f.email?.stringValue ?? "",
+      photoURL: f.photoURL?.stringValue ?? "",
+      bio: f.bio?.stringValue ?? "",
+      isArtist: f.isArtist?.booleanValue ?? false,
+      isPremiumSubscriber: f.isPremiumSubscriber?.booleanValue ?? false,
+      createdAt: null,
+    };
+  }
+  // fallback: SDK
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as UserProfile;

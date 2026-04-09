@@ -52,8 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loadProfile = async (u: User) => {
-    const profile = await getUserProfile(u.uid);
-    setUserProfile(profile);
+    try {
+      const idToken = await u.getIdToken();
+      const profile = await getUserProfile(u.uid, idToken);
+      setUserProfile(profile);
+    } catch {
+      const profile = await getUserProfile(u.uid);
+      setUserProfile(profile);
+    }
   };
 
   useEffect(() => {
