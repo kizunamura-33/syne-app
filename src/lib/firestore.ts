@@ -358,11 +358,11 @@ export async function toggleLike(postId: string, uid: string): Promise<boolean> 
   const existing = await doGet(likePath);
   if (existing) {
     await doDelete(likePath);
-    await doIncrement(`posts/${postId}`, "likesCount", -1);
+    doIncrement(`posts/${postId}`, "likesCount", -1).catch(() => {});
     return false;
   } else {
     await doSet(likePath, { uid, createdAt: new Date().toISOString() });
-    await doIncrement(`posts/${postId}`, "likesCount", 1);
+    doIncrement(`posts/${postId}`, "likesCount", 1).catch(() => {});
     return true;
   }
 }
@@ -404,7 +404,7 @@ export async function addComment(
     ...data,
     createdAt: new Date().toISOString(),
   });
-  await doIncrement(`posts/${postId}`, "commentsCount", 1);
+  doIncrement(`posts/${postId}`, "commentsCount", 1).catch(() => {});
   return id;
 }
 

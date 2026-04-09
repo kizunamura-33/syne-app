@@ -203,9 +203,9 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
               style={{ background: "#111111" }}
             >
               <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
-                {user?.photoURL || myAvatar ? (
+                {(userProfile?.photoURL || user?.photoURL || myAvatar) ? (
                   <img
-                    src={user?.photoURL ?? myAvatar}
+                    src={userProfile?.photoURL ?? user?.photoURL ?? myAvatar}
                     alt="me"
                     className="w-full h-full object-cover object-top"
                   />
