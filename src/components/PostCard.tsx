@@ -125,7 +125,7 @@ export default function PostCard({ post, onCommentOpen }: PostCardProps) {
     commentsCount = p.commentsCount;
     isVideoType = mediaType === "video";
     timeStr = p.createdAt
-      ? formatDistanceToNow(p.createdAt.toDate(), { addSuffix: true, locale: ja })
+      ? formatDistanceToNow(new Date(p.createdAt), { addSuffix: true, locale: ja })
       : "";
   } else {
     const p = post as { _source: "mock" } & MockPost & { authorName?: string; authorPhoto?: string };

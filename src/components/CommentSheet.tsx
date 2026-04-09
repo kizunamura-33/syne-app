@@ -21,12 +21,9 @@ type Props = {
   isFirestorePost?: boolean;
 };
 
-function timeStr(createdAt: FirestoreComment["createdAt"] | string): string {
+function timeStr(createdAt: string | null): string {
   if (!createdAt) return "";
-  if (typeof createdAt === "string") {
-    return formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ja });
-  }
-  return formatDistanceToNow(createdAt.toDate(), { addSuffix: true, locale: ja });
+  return formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ja });
 }
 
 export default function CommentSheet({ postId, open, onClose, isFirestorePost = false }: Props) {
