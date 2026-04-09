@@ -157,27 +157,22 @@ async function doDelete(path: string): Promise<void> {
 
 async function doIncrement(path: string, field: string, amount: number): Promise<void> {
   const token = await getToken();
-  if (!token) {
-    console.warn("doIncrement: no auth token, skipping");
-    return;
-  }
-  const fullPath = `projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:batchWrite`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      writes: [{
-        transform: {
-          document: fullPath,
-          fieldTransforms: [{ fieldPath: field, increment: { integerValue: String(amount) } }],
-        },
-      }],
-    }),
+  if (!token) return;
+  // 現在値を読んでPATCHで更新
+  const h: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const getRes = await fetch(`${BASE}/${path}`, { headers: h });
+  if (!getRes.ok) return;
+  const doc = await getRes.json();
+  const current = Number(doc.fields?.[field]?.integerValue ?? doc.fields?.[field]?.doubleValue ?? 0);
+  const next = Math.max(0, current + amount);
+  const patchRes = await fetch(`${BASE}/${path}?updateMask.fieldPaths=${field}`, {
+    method: "PATCH",
+    headers: { ...h, "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { [field]: { integerValue: String(next) } } }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    console.error(`doIncrement failed: ${res.status}`, err);
+  if (!patchRes.ok) {
+    const err = await patchRes.text();
+    console.error(`doIncrement PATCH failed: ${patchRes.status}`, err);
   }
 }
 
