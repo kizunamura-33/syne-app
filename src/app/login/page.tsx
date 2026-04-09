@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Globe } from "lucide-react";
 import toast from "react-hot-toast";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
@@ -16,6 +18,20 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const handlePasswordReset = async () => {
+    if (!email) { toast.error("メールアドレスを入力してください"); return; }
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      toast.success("パスワードリセットメールを送信しました");
+    } catch {
+      toast.error("メールの送信に失敗しました。アドレスを確認してください");
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -156,6 +172,18 @@ export default function LoginPage() {
               )}
             </motion.button>
           </form>
+
+          {/* パスワードリセット */}
+          <div className="text-right mt-2">
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={resetLoading}
+              className="text-zinc-500 text-xs hover:text-purple-400 transition-colors"
+            >
+              {resetLoading ? "送信中..." : "パスワードを忘れた方"}
+            </button>
+          </div>
 
           {/* セパレーター */}
           <div className="flex items-center gap-4 my-6">
