@@ -156,10 +156,22 @@ async function doDelete(path: string): Promise<void> {
 }
 
 async function doIncrement(path: string, field: string, amount: number): Promise<void> {
-  const doc = await doGet(path);
-  if (!doc) return;
-  const current = typeof doc[field] === "number" ? (doc[field] as number) : 0;
-  await doPatch(path, { [field]: current + amount });
+  const token = await getToken();
+  const fullPath = `projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:batchWrite`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      writes: [{
+        transform: {
+          document: fullPath,
+          fieldTransforms: [{ fieldPath: field, increment: { integerValue: String(amount) } }],
+        },
+      }],
+    }),
+  });
+  if (!res.ok) throw new Error(`INCREMENT ${path}.${field} failed: ${res.status}`);
 }
 
 interface QueryFilter { field: string; op: string; value: unknown }

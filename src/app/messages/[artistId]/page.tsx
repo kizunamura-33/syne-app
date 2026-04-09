@@ -110,8 +110,8 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
             {!isMine && (
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mb-1">
                 <Image
-                  src={isArtistMode ? (myPhoto || artist.avatar) : artist.avatar}
-                  alt={isArtistMode ? "ファン" : artist.name}
+                  src={artist.avatar}
+                  alt={artist.name}
                   width={28}
                   height={28}
                   className="w-full h-full object-cover object-top"
@@ -158,7 +158,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto bg-black border-t border-zinc-800 px-4 py-3 flex items-center gap-3 z-[60]">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
           <img
-            src={isArtistMode ? artist.avatar : myPhoto}
+            src={myPhoto || artist.avatar}
             alt="me"
             className="w-full h-full object-cover object-top"
           />
