@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Send } from "lucide-react";
+import { X, Send, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   subscribeToComments,
@@ -18,6 +19,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   isFirestorePost?: boolean;
+  onCommentAdded?: (postId: string) => void;
 };
 
 function timeStr(createdAt: string | null): string {
@@ -25,20 +27,40 @@ function timeStr(createdAt: string | null): string {
   return formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ja });
 }
 
-export default function CommentSheet({ postId, open, onClose, isFirestorePost = false }: Props) {
+export default function CommentSheet({
+  postId,
+  open,
+  onClose,
+  isFirestorePost = false,
+  onCommentAdded,
+}: Props) {
   const { user, userProfile } = useAuth();
-  const { comments: mockComments, addComment: addMockComment, myAvatar, myName } = useAppStore();
+  const router = useRouter();
+  const { comments: mockComments, addComment: addMockComment, myName } = useAppStore();
 
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [firestoreComments, setFirestoreComments] = useState<FirestoreComment[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // シートを開くたびにリセット
+  useEffect(() => {
+    if (open) {
+      setFirestoreComments([]);
+      setText("");
+    }
+  }, [open, postId]);
+
   // Firestore コメント購読
   useEffect(() => {
     if (!open || !isFirestorePost) return;
-    const unsub = subscribeToComments(postId, setFirestoreComments);
+    setLoading(true);
+    const unsub = subscribeToComments(postId, (comments) => {
+      setFirestoreComments(comments);
+      setLoading(false);
+    });
     return unsub;
   }, [open, postId, isFirestorePost]);
 
@@ -53,14 +75,15 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [firestoreComments, mockComments.length]);
+  }, [firestoreComments.length, mockComments.length]);
 
   const handleSubmit = async () => {
-    if (!text.trim() || submitting) return;
+    if (!text.trim() || submitting || !user) return;
     setSubmitting(true);
     const body = text.trim();
+    setText("");
 
-    if (isFirestorePost && user) {
+    if (isFirestorePost) {
       try {
         const commentId = await addFirestoreComment(postId, {
           authorId: user.uid,
@@ -68,7 +91,6 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
           authorPhoto: userProfile?.photoURL ?? user.photoURL ?? "",
           content: body,
         });
-        setText("");
         setFirestoreComments((prev) => [
           ...prev,
           {
@@ -81,11 +103,12 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
             createdAt: new Date().toISOString(),
           },
         ]);
+        onCommentAdded?.(postId);
       } catch (err) {
         console.error("コメント送信エラー:", err);
+        setText(body); // 失敗したらテキストを戻す
       }
     } else {
-      setText("");
       addMockComment(postId, body);
     }
     setSubmitting(false);
@@ -133,7 +156,7 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
               <h3 className="text-white font-bold text-base">
                 コメント{" "}
                 <span className="text-zinc-600 font-normal text-sm">
-                  {displayComments.length}
+                  {displayComments.length > 0 ? displayComments.length : ""}
                 </span>
               </h3>
               <button onClick={onClose} className="p-1 -mr-1">
@@ -146,7 +169,11 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
               ref={listRef}
               className="flex-1 overflow-y-auto px-4 py-3 space-y-4"
             >
-              {displayComments.length === 0 ? (
+              {loading ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : displayComments.length === 0 ? (
                 <div className="text-center py-10">
                   <p className="text-zinc-600 text-sm">最初のコメントを残そう</p>
                 </div>
@@ -156,9 +183,15 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
                   const name = isFirestoreC
                     ? (c as FirestoreComment).authorName
                     : (c as { userName: string }).userName;
-                  const photo = isFirestoreC
+                  const storedPhoto = isFirestoreC
                     ? (c as FirestoreComment).authorPhoto
                     : (c as { userAvatar: string }).userAvatar;
+                  const isOwnComment = isFirestoreC
+                    ? !!(user && (c as FirestoreComment).authorId === user.uid)
+                    : (c as { userId: string }).userId === "me";
+                  const photo = isOwnComment
+                    ? (userProfile?.photoURL || user?.photoURL || "")
+                    : storedPhoto;
                   const body = isFirestoreC
                     ? (c as FirestoreComment).content
                     : (c as { text: string }).text;
@@ -168,17 +201,19 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
 
                   return (
                     <div key={c.id} className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
-                        {photo ? (
+                      <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
+                        {/* イニシャル（常に裏に描画） */}
+                        <div className="absolute inset-0 bg-gradient-syne flex items-center justify-center text-white text-xs font-bold">
+                          {name?.[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        {/* 画像（読み込み失敗時は非表示） */}
+                        {photo && (
                           <img
                             src={photo}
                             alt={name}
-                            className="w-full h-full object-cover object-top"
+                            className="absolute inset-0 w-full h-full object-cover object-top"
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
                           />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-syne flex items-center justify-center text-white text-xs font-bold">
-                            {name?.[0]?.toUpperCase()}
-                          </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -196,38 +231,49 @@ export default function CommentSheet({ postId, open, onClose, isFirestorePost = 
 
             {/* 入力欄 */}
             <div
-              className="flex items-center gap-3 px-4 py-3 border-t border-white/5 flex-shrink-0 pb-safe"
-              style={{ background: "#111111" }}
+              className="flex items-center gap-3 px-4 py-3 border-t border-white/5 flex-shrink-0"
+              style={{ background: "#111111", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
             >
-              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
-                {(userProfile?.photoURL || user?.photoURL || myAvatar) ? (
-                  <img
-                    src={userProfile?.photoURL ?? user?.photoURL ?? myAvatar}
-                    alt="me"
-                    className="w-full h-full object-cover object-top"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-syne flex items-center justify-center text-white text-xs font-bold">
-                    {(user?.displayName ?? myName)?.[0]?.toUpperCase()}
+              {user ? (
+                <>
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
+                    <div className="absolute inset-0 bg-gradient-syne flex items-center justify-center text-white text-xs font-bold">
+                      {(userProfile?.displayName ?? user?.displayName ?? myName)?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    {(userProfile?.photoURL || user?.photoURL) && (
+                      <img
+                        src={userProfile?.photoURL ?? user?.photoURL ?? ""}
+                        alt="me"
+                        className="absolute inset-0 w-full h-full object-cover object-top"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    )}
                   </div>
-                )}
-              </div>
-              <input
-                ref={inputRef}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                placeholder={user ? "コメントを追加..." : "ログインしてコメントする"}
-                disabled={!user && !isFirestorePost}
-                className="flex-1 bg-zinc-800/80 text-white placeholder-zinc-600 text-sm rounded-full px-4 py-2.5 outline-none"
-              />
-              <button
-                onClick={handleSubmit}
-                disabled={!text.trim() || submitting}
-                className="text-purple-400 disabled:text-zinc-700 transition-colors"
-              >
-                <Send size={20} />
-              </button>
+                  <input
+                    ref={inputRef}
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                    placeholder="コメントを追加..."
+                    className="flex-1 bg-zinc-800/80 text-white placeholder-zinc-600 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-1 focus:ring-purple-500/40"
+                  />
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!text.trim() || submitting}
+                    className="text-purple-400 disabled:text-zinc-700 transition-colors flex-shrink-0"
+                  >
+                    <Send size={20} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { onClose(); router.push("/login"); }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full bg-zinc-800 text-zinc-400 text-sm"
+                >
+                  <LogIn size={16} />
+                  ログインしてコメントする
+                </button>
+              )}
             </div>
           </motion.div>
         </>

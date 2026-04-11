@@ -71,8 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       if (u) {
         await loadProfile(u);
+        // Firestore からフォロー中アーティストを読み込む
+        import("@/store/useAppStore").then(({ useAppStore }) => {
+          useAppStore.getState().loadFollows(u.uid).catch(console.error);
+        });
       } else {
         setUserProfile(null);
+        // ログアウト時はフォロー一覧をクリア
+        import("@/store/useAppStore").then(({ useAppStore }) => {
+          useAppStore.getState().clearFollows();
+        });
       }
       setLoading(false);
     });

@@ -5,6 +5,12 @@ import { persist } from "zustand/middleware";
 import { posts as initialPosts, comments as initialComments, notifications as initialNotifications, artists } from "@/data/mockData";
 import type { Comment, Notification } from "@/data/mockData";
 import { supabase } from "@/lib/supabase";
+import {
+  followArtist,
+  unfollowArtist,
+  getFollowing,
+  getFollowerCount,
+} from "@/lib/firestore";
 
 export type ChatMessage = {
   id: string;
@@ -68,9 +74,10 @@ type AppStore = {
   artistProfiles: Record<string, { bio: string; avatar: string }>;
 
   // Follows
-  fanId: string;
   followerCounts: Record<string, number>;
   fetchFollowerCount: (artistId: string) => Promise<void>;
+  loadFollows: (uid: string) => Promise<void>;
+  clearFollows: () => void;
 
   toggleLike: (postId: string) => void;
   toggleFollow: (artistId: string) => Promise<void>;
@@ -102,7 +109,7 @@ type AppStore = {
 
 export const useAppStore = create<AppStore>()(persist((set, get) => ({
   likedPosts: new Set(),
-  followedArtists: new Set(["ziou"]),
+  followedArtists: new Set<string>(),
   subscribedArtists: new Set(),
   likeCount: Object.fromEntries(initialPosts.map((p) => [p.id, p.likes])),
   comments: initialComments,
@@ -116,7 +123,6 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   supabaseArtistId: null,
   authInitialized: false,
   artistProfiles: {},
-  fanId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2),
   followerCounts: {},
 
   initArtistAuth: () => {
@@ -215,27 +221,60 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   },
 
   fetchFollowerCount: async (artistId) => {
-    const { count } = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("artist_id", artistId);
-    if (count !== null) {
+    try {
+      const count = await getFollowerCount(artistId);
       set((state) => ({ followerCounts: { ...state.followerCounts, [artistId]: count } }));
+    } catch (e) {
+      console.error("fetchFollowerCount failed:", e);
     }
   },
 
   toggleFollow: async (artistId) => {
-    const { followedArtists, fanId } = get();
+    // Firebase auth の currentUser から uid を取得
+    const { auth } = await import("@/lib/firebase");
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    const { followedArtists } = get();
+    const wasFollowed = followedArtists.has(artistId);
     const newFollowed = new Set(followedArtists);
-    if (newFollowed.has(artistId)) {
+    if (wasFollowed) {
       newFollowed.delete(artistId);
-      await supabase.from("follows").delete().eq("fan_id", fanId).eq("artist_id", artistId);
+      set({ followedArtists: newFollowed });
+      try {
+        await unfollowArtist(uid, artistId);
+      } catch (e) {
+        console.error("unfollowArtist failed:", e);
+        set({ followedArtists: new Set([...get().followedArtists, artistId]) });
+        return;
+      }
     } else {
       newFollowed.add(artistId);
-      await supabase.from("follows").insert({ fan_id: fanId, artist_id: artistId });
+      set({ followedArtists: newFollowed });
+      try {
+        await followArtist(uid, artistId);
+      } catch (e) {
+        console.error("followArtist failed:", e);
+        const reverted = new Set(get().followedArtists);
+        reverted.delete(artistId);
+        set({ followedArtists: reverted });
+        return;
+      }
     }
-    set({ followedArtists: newFollowed });
     get().fetchFollowerCount(artistId);
+  },
+
+  loadFollows: async (uid) => {
+    try {
+      const artistIds = await getFollowing(uid);
+      set({ followedArtists: new Set(artistIds) });
+    } catch (e) {
+      console.error("loadFollows failed:", e);
+    }
+  },
+
+  clearFollows: () => {
+    set({ followedArtists: new Set<string>() });
   },
 
   toggleSubscribe: (artistId) => {
@@ -319,5 +358,5 @@ export const useAppStore = create<AppStore>()(persist((set, get) => ({
   },
 }), {
   name: "syne-chat-storage",
-  partialize: (state) => ({ chatMessages: state.chatMessages, fanId: state.fanId }),
+  partialize: (state) => ({ chatMessages: state.chatMessages }),
 }));

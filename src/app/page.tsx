@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogIn, Radio, Zap } from "lucide-react";
@@ -27,8 +27,8 @@ export default function HomePage() {
     };
   }, []);
 
-  // モック投稿を UnifiedPost 型に変換
-  const mockUnified: UnifiedPost[] = mockPosts.map((p) => {
+  // モック投稿を UnifiedPost 型に変換（メモ化）
+  const mockUnified = useMemo<UnifiedPost[]>(() => mockPosts.map((p) => {
     const artist = artists.find((a) => a.id === p.artistId);
     return {
       _source: "mock" as const,
@@ -36,21 +36,32 @@ export default function HomePage() {
       authorName: artist?.name ?? p.artistId,
       authorPhoto: getArtistAvatar(p.artistId) ?? artist?.avatar ?? "",
     };
-  });
+  }), [getArtistAvatar]);
 
-  // Firestore 投稿を UnifiedPost 型に変換
-  const fsUnified: UnifiedPost[] = firestorePosts.map((p) => ({
+  // Firestore 投稿を UnifiedPost 型に変換（メモ化）
+  const fsUnified = useMemo<UnifiedPost[]>(() => firestorePosts.map((p) => ({
     _source: "firestore" as const,
     ...p,
-  }));
+  })), [firestorePosts]);
 
   // 全投稿をマージ（Firestore 優先、最新順）
-  const allPosts: UnifiedPost[] = [...fsUnified, ...mockUnified];
+  const allPosts = useMemo(() => [...fsUnified, ...mockUnified], [fsUnified, mockUnified]);
 
   const openComment = useCallback((postId: string) => {
-    const isFs = fsUnified.some((p) => p.id === postId);
+    const isFs = firestorePosts.some((p) => p.id === postId);
     setCommentTarget({ id: postId, isFirestore: isFs });
-  }, [fsUnified]);
+  }, [firestorePosts]);
+
+  // コメント投稿後にカード側のカウントをローカル更新（postId を引数で直接受け取る）
+  const handleCommentAdded = useCallback((postId: string) => {
+    setFirestorePosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, commentsCount: p.commentsCount + 1 }
+          : p,
+      ),
+    );
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#050505]">
@@ -151,6 +162,7 @@ export default function HomePage() {
         open={!!commentTarget}
         onClose={() => setCommentTarget(null)}
         isFirestorePost={commentTarget?.isFirestore ?? false}
+        onCommentAdded={handleCommentAdded}
       />
     </div>
   );

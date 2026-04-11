@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -17,8 +16,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { createPost } from "@/lib/firestore";
-import { uploadMediaToSupabase } from "@/lib/supabase";
+import { createPost, uploadMedia } from "@/lib/firestore";
 
 type PostType = "image" | "video" | "text";
 
@@ -97,7 +95,7 @@ export default function CreatePage() {
 
       if (mediaFile) {
         mediaType = postType as "image" | "video";
-        mediaURL = await uploadMediaToSupabase(mediaFile, user.uid, setUploadProgress);
+        mediaURL = await uploadMedia(mediaFile, user.uid, setUploadProgress);
       }
 
       await createPost({
@@ -220,11 +218,11 @@ export default function CreatePage() {
               className="relative rounded-2xl overflow-hidden bg-[#0f0f0f] aspect-[4/5]"
             >
               {postType === "image" ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={mediaPreview}
                   alt="preview"
-                  fill
-                  className="object-cover"
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <video

@@ -454,3 +454,82 @@ export async function uploadAvatar(file: File, uid: string): Promise<string> {
   );
   return getDownloadURL(task.snapshot.ref);
 }
+
+// ─── フォロー ──────────────────────────────────────────
+export async function followArtist(fanId: string, artistId: string): Promise<void> {
+  await doSet(`follows/${fanId}_${artistId}`, {
+    fanId,
+    artistId,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function unfollowArtist(fanId: string, artistId: string): Promise<void> {
+  await doDelete(`follows/${fanId}_${artistId}`);
+}
+
+export async function getFollowing(fanId: string): Promise<string[]> {
+  const results = await doQuery(
+    "follows",
+    [{ field: "fanId", op: "EQUAL", value: fanId }],
+  );
+  return (results as unknown as { artistId: string }[]).map((r) => r.artistId);
+}
+
+export async function getFollowerCount(artistId: string): Promise<number> {
+  const results = await doQuery(
+    "follows",
+    [{ field: "artistId", op: "EQUAL", value: artistId }],
+  );
+  return results.length;
+}
+
+// ─── チャットメッセージ ────────────────────────────────────
+
+export type FirestoreMessage = {
+  id: string;
+  fanId: string;
+  artistId: string;
+  fromMe: boolean;
+  text: string;
+  createdAt: string;
+};
+
+export async function sendFirestoreMessage(
+  fanId: string,
+  artistId: string,
+  text: string,
+  fromMe: boolean,
+): Promise<string> {
+  return doCreate("chatMessages", {
+    fanId,
+    artistId,
+    fromMe,
+    text,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function getFirestoreMessages(
+  fanId: string,
+  artistId: string,
+): Promise<FirestoreMessage[]> {
+  const results = await doQuery(
+    "chatMessages",
+    [
+      { field: "fanId", op: "EQUAL", value: fanId },
+      { field: "artistId", op: "EQUAL", value: artistId },
+    ],
+    [{ field: "createdAt", dir: "ASCENDING" }],
+  );
+  return results as unknown as FirestoreMessage[];
+}
+
+export async function getFirestoreConversations(fanId: string): Promise<FirestoreMessage[]> {
+  const results = await doQuery(
+    "chatMessages",
+    [{ field: "fanId", op: "EQUAL", value: fanId }],
+    [{ field: "createdAt", dir: "DESCENDING" }],
+  );
+  return results as unknown as FirestoreMessage[];
+}

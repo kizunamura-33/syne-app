@@ -4,11 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Crown, Settings, ChevronRight, X, Camera, Check, LogOut, Mic, LogIn, Trash2 } from "lucide-react";
+import { Crown, Settings, ChevronRight, X, Camera, Check, LogOut, Mic, LogIn, Trash2, ExternalLink } from "lucide-react";
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfile } from "@/lib/firestore";
+import { updateUserProfile, uploadAvatar } from "@/lib/firestore";
 import toast from "react-hot-toast";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
@@ -18,10 +18,12 @@ export default function ProfilePage() {
   const { user, userProfile, logout, deleteAccount, refreshProfile } = useAuth();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const { followedArtists, subscribedArtists } = useAppStore();
+  const isArtist = userProfile?.isArtist === true;
+  const { followedArtists, subscribedArtists, supabaseArtistId } = useAppStore();
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
-  const isArtist = userProfile?.isArtist === true;
+  // アーティストとして登録されている場合のマイページID
+  const myArtistId = isArtist ? (supabaseArtistId || user?.uid) : null;
 
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -68,29 +70,37 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const idToken = await user.getIdToken();
+
+      // data URL の場合は Firebase Storage にアップロード
+      let photoURL = editAvatar;
+      if (editAvatar.startsWith("data:")) {
+        const blob = await (await fetch(editAvatar)).blob();
+        const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+        photoURL = await uploadAvatar(file, user.uid);
+      }
+
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 10000)
+        setTimeout(() => reject(new Error("timeout")), 15000)
       );
       await Promise.race([
         updateUserProfile(user.uid, {
           displayName: editName.trim() || displayName,
           bio: editBio.trim(),
-          photoURL: editAvatar,
+          photoURL,
         }, idToken),
         timeout,
       ]);
       setEditOpen(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-      // バックグラウンドでプロフィールを更新
       refreshProfile().catch(console.error);
     } catch (err) {
       console.error("プロフィール保存エラー:", err);
       const msg = err instanceof Error ? err.message : "";
       if (msg === "timeout") {
-        toast.error("保存がタイムアウトしました。Firestoreのルールを確認してください。");
+        toast.error("保存がタイムアウトしました");
       } else {
-        toast.error("保存に失敗しました: " + msg);
+        toast.error("保存に失敗しました");
       }
     } finally {
       setSaving(false);
@@ -110,9 +120,9 @@ export default function ProfilePage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
       if (msg.includes("requires-recent-login")) {
-        alert("セキュリティのため、一度ログアウトして再ログイン後に退会してください。");
+        toast.error("一度ログアウトして再ログイン後に退会してください");
       } else {
-        alert("退会に失敗しました。");
+        toast.error("退会に失敗しました");
       }
     } finally {
       setDeleting(false);
@@ -251,6 +261,21 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* アーティストマイページ */}
+        {myArtistId && (
+          <div className="mb-4">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">アーティスト</h3>
+            <Link
+              href={`/artist/${myArtistId}`}
+              className="flex items-center gap-3 p-4 rounded-xl border border-purple-500/30 bg-purple-500/5 text-purple-300"
+            >
+              <Mic size={18} className="text-purple-400" />
+              <span className="text-sm font-medium flex-1">マイアーティストページ</span>
+              <ExternalLink size={15} className="text-purple-500/60" />
+            </Link>
+          </div>
+        )}
 
         {/* Logout */}
         <button

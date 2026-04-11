@@ -1,12 +1,15 @@
 "use client";
 
-import { use, useState, useRef, useEffect } from "react";
+import { use, useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Crown, Users, ChevronLeft, Lock, Check, Pencil, X, Camera } from "lucide-react";
-import { artists, posts } from "@/data/mockData";
+import { useRouter } from "next/navigation";
+import { artists, posts as mockPosts } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
+import { getUserPosts, FirestorePost } from "@/lib/firestore";
 import PostCard, { UnifiedPost } from "@/components/PostCard";
+import CommentSheet from "@/components/CommentSheet";
 
 function formatFollowers(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -15,13 +18,29 @@ function formatFollowers(n: number): string {
 
 export default function ArtistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const artist = artists.find((a) => a.id === id);
-  const { toggleFollow, isFollowed, toggleSubscribe, isSubscribed, supabaseArtistId, updateArtistProfile, getArtistAvatar, getArtistBio, fetchFollowerCount, followerCounts } = useAppStore();
+  const router = useRouter();
+  const mockArtist = artists.find((a) => a.id === id);
+
+  const {
+    toggleFollow, isFollowed, toggleSubscribe, isSubscribed,
+    supabaseArtistId, updateArtistProfile, getArtistAvatar, getArtistBio,
+    fetchFollowerCount, followerCounts,
+  } = useAppStore();
+
   const [mounted, setMounted] = useState(false);
+  const [fsPosts, setFsPosts] = useState<FirestorePost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [commentTarget, setCommentTarget] = useState<{ id: string; isFirestore: boolean } | null>(null);
 
   useEffect(() => {
     setMounted(true);
     fetchFollowerCount(id);
+
+    // Firestore からこのアーティストの投稿を取得
+    getUserPosts(id)
+      .then(setFsPosts)
+      .catch(console.error)
+      .finally(() => setPostsLoading(false));
   }, [id, fetchFollowerCount]);
 
   const isMyArtist = mounted && supabaseArtistId === id;
@@ -30,7 +49,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
   const [editOpen, setEditOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
-  const [editAvatar, setEditAvatar] = useState(artist?.avatar ?? "");
+  const [editAvatar, setEditAvatar] = useState(mockArtist?.avatar ?? "");
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -67,20 +86,63 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
     setTimeout(() => setSaved(false), 2500);
   };
 
-  if (!artist) {
+  // Firestore 投稿をモック投稿と合わせて表示
+  const fsUnified: UnifiedPost[] = fsPosts.map((p) => ({
+    _source: "firestore" as const,
+    ...p,
+  }));
+
+  const mockUnified: UnifiedPost[] = mockPosts
+    .filter((p) => p.artistId === id)
+    .map((p) => ({
+      _source: "mock" as const,
+      ...p,
+      authorName: mockArtist?.name ?? id,
+      authorPhoto: getArtistAvatar(id) ?? mockArtist?.avatar ?? "",
+    }));
+
+  const allPosts: UnifiedPost[] = [...fsUnified, ...mockUnified];
+
+  const openComment = useCallback((postId: string) => {
+    const isFs = fsPosts.some((p) => p.id === postId);
+    setCommentTarget({ id: postId, isFirestore: isFs });
+  }, [fsPosts]);
+
+  const handleCommentAdded = useCallback(() => {
+    if (!commentTarget?.isFirestore) return;
+    setFsPosts((prev) =>
+      prev.map((p) =>
+        p.id === commentTarget.id
+          ? { ...p, commentsCount: p.commentsCount + 1 }
+          : p,
+      ),
+    );
+  }, [commentTarget]);
+
+  // Firestore 登録アーティストの情報をフォールバックで構築
+  const firstFsPost = fsPosts[0];
+  const artistName = mockArtist?.name ?? firstFsPost?.authorName ?? id;
+  const artistAvatar = currentAvatar ?? mockArtist?.avatar ?? firstFsPost?.authorPhoto ?? "";
+  const artistCover = mockArtist?.coverImage ?? "";
+  const artistGenre = mockArtist?.genre ?? "";
+  const artistVerified = mockArtist?.verified ?? false;
+  const artistMonthlyPrice = mockArtist?.monthlyPrice ?? 980;
+
+  // モックにもなく Firestore 投稿もない場合
+  if (!postsLoading && !mockArtist && fsPosts.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-zinc-500">
-        アーティストが見つかりません
+      <div className="flex flex-col items-center justify-center min-h-screen text-zinc-500 gap-3">
+        <p>アーティストが見つかりません</p>
+        <button onClick={() => router.back()} className="text-sm text-purple-400">戻る</button>
       </div>
     );
   }
 
-  const artistPosts = posts.filter((p) => p.artistId === id);
   const followed = isFollowed(id);
   const subscribed = isSubscribed(id);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black pb-24">
       {/* 保存トースト */}
       <div className={`fixed top-10 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-zinc-800 text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 whitespace-nowrap ${saved ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
         <Check size={14} className="text-green-400" />
@@ -89,22 +151,21 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
       {/* Back button */}
       <div className="absolute top-4 left-4 z-20">
-        <Link
-          href="/"
+        <button
+          onClick={() => router.back()}
           className="flex items-center justify-center w-8 h-8 bg-black/50 backdrop-blur-sm rounded-full"
         >
           <ChevronLeft size={20} className="text-white" />
-        </Link>
+        </button>
       </div>
 
       {/* Cover */}
-      <div className="relative h-48">
-        <Image
-          src={artist.coverImage}
-          alt={artist.name}
-          fill
-          className="object-cover"
-        />
+      <div className="relative h-48 bg-zinc-900">
+        {artistCover ? (
+          <Image src={artistCover} alt={artistName} fill className="object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 to-pink-900/30" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black" />
       </div>
 
@@ -112,8 +173,10 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
       <div className="px-4 -mt-12 relative z-10">
         <div className="flex items-end justify-between mb-4">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-black flex-shrink-0">
-              <img src={currentAvatar ?? undefined} alt={artist.name} className="w-full h-full object-cover object-top" />
+            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-black flex-shrink-0 bg-zinc-800">
+              {artistAvatar && (
+                <img src={artistAvatar} alt={artistName} className="w-full h-full object-cover object-top" />
+              )}
             </div>
             {isMyArtist && (
               <button
@@ -135,7 +198,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
               </button>
             ) : (
               <button
-                onClick={() => toggleFollow(artist.id)}
+                onClick={() => toggleFollow(id)}
                 className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
                   followed
                     ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
@@ -150,13 +213,14 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl font-black text-white">{artist.name}</h1>
-            {artist.verified && (
+            <h1 className="text-xl font-black text-white">{artistName}</h1>
+            {artistVerified && (
               <Crown size={16} className="text-yellow-400 fill-yellow-400" />
             )}
           </div>
-          <p className="text-purple-400 text-sm font-medium mb-2">{artist.genre}</p>
+          {artistGenre && <p className="text-purple-400 text-sm font-medium mb-2">{artistGenre}</p>}
           <p className="text-zinc-400 text-sm leading-relaxed">{currentBio}</p>
+
           {isMyArtist ? (
             <div className="flex gap-4 mt-3">
               <div className="bg-zinc-900 rounded-xl px-4 py-2.5 text-center">
@@ -166,7 +230,9 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
                 <p className="text-zinc-500 text-xs">フォロワー</p>
               </div>
               <div className="bg-zinc-900 rounded-xl px-4 py-2.5 text-center">
-                <p className="text-white font-black text-lg">{artist.monthlyPrice.toLocaleString()}<span className="text-sm font-bold">円</span></p>
+                <p className="text-white font-black text-lg">
+                  {artistMonthlyPrice.toLocaleString()}<span className="text-sm font-bold">円</span>
+                </p>
                 <p className="text-zinc-500 text-xs">月額</p>
               </div>
             </div>
@@ -174,7 +240,10 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
             <div className="flex items-center gap-1 mt-2">
               <Users size={14} className="text-zinc-500" />
               <span className="text-zinc-500 text-sm">
-                {followerCounts[id] !== undefined ? followerCounts[id].toLocaleString() : formatFollowers(artist.followers)} フォロワー
+                {followerCounts[id] !== undefined
+                  ? followerCounts[id].toLocaleString()
+                  : formatFollowers(mockArtist?.followers ?? 0)}{" "}
+                フォロワー
               </span>
             </div>
           )}
@@ -182,9 +251,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
         {/* Subscription card */}
         <div className={`rounded-2xl p-4 mb-6 border ${
-          subscribed
-            ? "bg-purple-900/20 border-purple-500/40"
-            : "bg-zinc-950 border-zinc-800"
+          subscribed ? "bg-purple-900/20 border-purple-500/40" : "bg-zinc-950 border-zinc-800"
         }`}>
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -200,7 +267,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
               <p className="text-zinc-500 text-xs mt-1">限定コンテンツ・裏側・先行情報</p>
             </div>
             <div className="text-right">
-              <p className="text-white font-black text-lg">¥{artist.monthlyPrice.toLocaleString()}</p>
+              <p className="text-white font-black text-lg">¥{artistMonthlyPrice.toLocaleString()}</p>
               <p className="text-zinc-600 text-xs">/月</p>
             </div>
           </div>
@@ -216,14 +283,14 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
           {!subscribed ? (
             <button
-              onClick={() => toggleSubscribe(artist.id)}
+              onClick={() => toggleSubscribe(id)}
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm py-2.5 rounded-xl"
             >
               サブスクする
             </button>
           ) : (
             <button
-              onClick={() => toggleSubscribe(artist.id)}
+              onClick={() => toggleSubscribe(id)}
               className="w-full bg-zinc-800 text-zinc-400 font-bold text-sm py-2.5 rounded-xl border border-zinc-700"
             >
               解約する
@@ -231,22 +298,27 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           )}
         </div>
 
-        {/* Posts */}
+        {/* Posts header */}
         <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
-          投稿
+          投稿 {allPosts.length > 0 && <span className="text-zinc-700">{allPosts.length}</span>}
         </h2>
       </div>
 
+      {/* Posts */}
       <div>
-        {artistPosts.map((post) => {
-          const unified: UnifiedPost = {
-            _source: "mock" as const,
-            ...post,
-            authorName: artist?.name ?? id,
-            authorPhoto: getArtistAvatar(id) ?? artist?.avatar ?? "",
-          };
-          return <PostCard key={post.id} post={unified} />;
-        })}
+        {postsLoading ? (
+          <div className="flex justify-center py-10">
+            <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : allPosts.length === 0 ? (
+          <div className="text-center py-10 text-zinc-600 text-sm">
+            まだ投稿がありません
+          </div>
+        ) : (
+          allPosts.map((post) => (
+            <PostCard key={post.id} post={post} onCommentOpen={openComment} />
+          ))
+        )}
       </div>
 
       {/* Edit Sheet */}
@@ -278,7 +350,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           {/* Avatar */}
           <div className="flex flex-col items-center gap-2">
             <button onClick={() => fileRef.current?.click()} className="relative">
-              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-zinc-700">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-zinc-700 bg-zinc-800">
                 {editAvatar && <img src={editAvatar} alt="avatar" className="w-full h-full object-cover object-top" />}
               </div>
               <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
@@ -306,6 +378,15 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           </div>
         </div>
       </div>
+
+      {/* Comment Sheet */}
+      <CommentSheet
+        postId={commentTarget?.id ?? ""}
+        open={!!commentTarget}
+        onClose={() => setCommentTarget(null)}
+        isFirestorePost={commentTarget?.isFirestore ?? false}
+        onCommentAdded={handleCommentAdded}
+      />
     </div>
   );
 }
