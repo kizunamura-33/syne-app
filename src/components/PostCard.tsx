@@ -119,8 +119,11 @@ export default function PostCard({ post, onCommentOpen, onDelete }: PostCardProp
     isPremium = p.isPremium;
     hasAccess = !isPremium || (userProfile?.isPremiumSubscriber ?? false);
     authorName = p.authorName;
-    authorPhoto = p.authorPhoto || undefined;
     authorId = p.authorId;
+    // 自分の投稿は常に最新のプロフィール写真を使う
+    authorPhoto = (user?.uid === p.authorId)
+      ? (userProfile?.photoURL || user?.photoURL || p.authorPhoto || undefined)
+      : (p.authorPhoto || undefined);
     caption = p.content;
     tags = p.tags ?? [];
     likesCount = p.likesCount;

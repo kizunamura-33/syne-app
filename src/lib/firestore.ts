@@ -339,9 +339,14 @@ export async function getUserPosts(uid: string): Promise<FirestorePost[]> {
   const results = await doQuery(
     "posts",
     [{ field: "authorId", op: "EQUAL", value: uid }],
-    [{ field: "createdAt", dir: "DESCENDING" }],
   );
-  return results as unknown as FirestorePost[];
+  // クライアントでソート（複合インデックス不要）
+  const posts = results as unknown as FirestorePost[];
+  return posts.sort((a, b) => {
+    if (!a.createdAt) return 1;
+    if (!b.createdAt) return -1;
+    return b.createdAt > a.createdAt ? 1 : -1;
+  });
 }
 
 export async function createPost(
