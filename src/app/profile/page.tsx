@@ -8,7 +8,7 @@ import { Crown, Settings, ChevronRight, X, Camera, Check, LogOut, Mic, LogIn, Tr
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfile, getUserProfile } from "@/lib/firestore";
+import { updateUserProfile, getUserProfile, getFollowerCount } from "@/lib/firestore";
 import toast from "react-hot-toast";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
@@ -38,6 +38,15 @@ export default function ProfilePage() {
   }, [followedArtists]);
   // アーティストとして登録されている場合のマイページID
   const myArtistId = isArtist ? (supabaseArtistId || user?.uid) : null;
+
+  // アーティストのフォロワー数
+  const [followerCount, setFollowerCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isArtist || !myArtistId) return;
+    getFollowerCount(myArtistId)
+      .then(setFollowerCount)
+      .catch(console.error);
+  }, [isArtist, myArtistId]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -204,11 +213,18 @@ export default function ProfilePage() {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          {[
-            { value: followedList.length + fsFollowedArtists.length, label: "フォロー中" },
-            { value: subscribedList.length, label: "サブスク中" },
-            { value: 0, label: "投げ銭総額" },
-          ].map(({ value, label }) => (
+          {(isArtist
+            ? [
+                { value: followerCount !== null ? followerCount : "…", label: "フォロワー" },
+                { value: followedList.length + fsFollowedArtists.length, label: "フォロー中" },
+                { value: 0, label: "投げ銭総額" },
+              ]
+            : [
+                { value: followedList.length + fsFollowedArtists.length, label: "フォロー中" },
+                { value: subscribedList.length, label: "サブスク中" },
+                { value: 0, label: "投げ銭総額" },
+              ]
+          ).map(({ value, label }) => (
             <div key={label} className="bg-zinc-950 rounded-2xl p-3 border border-zinc-800/50 text-center">
               <p className="text-white font-black text-2xl">{value}</p>
               <p className="text-zinc-500 text-xs mt-0.5">{label}</p>
