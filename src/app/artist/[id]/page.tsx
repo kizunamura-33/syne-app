@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Users, ChevronLeft, Lock, Check, Pencil, X, Camera } from "lucide-react";
+import { Crown, Users, ChevronLeft, Lock, Check, Pencil, X, Camera, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { artists, posts as mockPosts } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
@@ -197,16 +197,25 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
                 編集
               </button>
             ) : (
-              <button
-                onClick={() => toggleFollow(id)}
-                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
-                  followed
-                    ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
-                    : "bg-white text-black"
-                }`}
-              >
-                {followed ? "フォロー中" : "フォロー"}
-              </button>
+              <>
+                <button
+                  onClick={() => toggleFollow(id)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
+                    followed
+                      ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                      : "bg-white text-black"
+                  }`}
+                >
+                  {followed ? "フォロー中" : "フォロー"}
+                </button>
+                <Link
+                  href={`/messages/${id}`}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold bg-zinc-800 text-zinc-300 border border-zinc-700"
+                >
+                  <MessageCircle size={14} />
+                  DM
+                </Link>
+              </>
             )}
           </div>
         </div>
