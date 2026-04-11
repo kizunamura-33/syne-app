@@ -205,7 +205,7 @@ export default function ProfilePage() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { value: followedList.length, label: "フォロー中" },
+            { value: followedList.length + fsFollowedArtists.length, label: "フォロー中" },
             { value: subscribedList.length, label: "サブスク中" },
             { value: 0, label: "投げ銭総額" },
           ].map(({ value, label }) => (

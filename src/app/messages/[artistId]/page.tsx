@@ -66,16 +66,17 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
     if (mockArtist) return;
     getUserProfile(artistId)
       .then((profile) => {
-        if (profile) {
-          setArtistInfo({
-            id: artistId,
-            name: profile.displayName || "アーティスト",
-            avatar: profile.photoURL || "",
-            genre: "",
-          });
-        }
+        setArtistInfo({
+          id: artistId,
+          name: profile?.displayName || "アーティスト",
+          avatar: profile?.photoURL || "",
+          genre: "",
+        });
       })
-      .catch(console.error);
+      .catch(() => {
+        // 取得失敗でも最低限の情報でチャットを開く
+        setArtistInfo({ id: artistId, name: "アーティスト", avatar: "", genre: "" });
+      });
   }, [artistId, mockArtist]);
 
   // Firestoreからメッセージ読み込み
