@@ -119,6 +119,10 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
     );
   }, [commentTarget]);
 
+  const handleDelete = useCallback((postId: string) => {
+    setFsPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
   // Firestore 登録アーティストの情報をフォールバックで構築
   const firstFsPost = fsPosts[0];
   const artistName = mockArtist?.name ?? firstFsPost?.authorName ?? id;
@@ -325,7 +329,7 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
           </div>
         ) : (
           allPosts.map((post) => (
-            <PostCard key={post.id} post={post} onCommentOpen={openComment} />
+            <PostCard key={post.id} post={post} onCommentOpen={openComment} onDelete={handleDelete} />
           ))
         )}
       </div>

@@ -525,6 +525,11 @@ export async function getFirestoreMessages(
   return results as unknown as FirestoreMessage[];
 }
 
+// ─── 投稿削除 ──────────────────────────────────────────
+export async function deletePost(postId: string): Promise<void> {
+  await doDelete(`posts/${postId}`);
+}
+
 export async function getFirestoreConversations(fanId: string): Promise<FirestoreMessage[]> {
   const results = await doQuery(
     "chatMessages",

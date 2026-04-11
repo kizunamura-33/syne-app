@@ -63,6 +63,10 @@ export default function HomePage() {
     );
   }, []);
 
+  const handleDelete = useCallback((postId: string) => {
+    setFirestorePosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#050505]">
       {/* ヘッダー */}
@@ -150,7 +154,7 @@ export default function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(i * 0.04, 0.3) }}
             >
-              <PostCard post={post} onCommentOpen={openComment} />
+              <PostCard post={post} onCommentOpen={openComment} onDelete={handleDelete} />
             </motion.div>
           ))}
         </AnimatePresence>

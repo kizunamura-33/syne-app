@@ -12,11 +12,12 @@ import {
   Lock,
   Play,
   Verified,
+  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
-import { toggleLike, checkLiked } from "@/lib/firestore";
+import { toggleLike, checkLiked, deletePost } from "@/lib/firestore";
 import type { FirestorePost } from "@/lib/firestore";
 import { useAppStore } from "@/store/useAppStore";
 import type { Post as MockPost } from "@/data/mockData";
@@ -29,6 +30,7 @@ export type UnifiedPost =
 interface PostCardProps {
   post: UnifiedPost;
   onCommentOpen?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
 }
 
 function formatCount(n: number): string {
@@ -82,7 +84,7 @@ function PremiumBadge({ small = false }: { small?: boolean }) {
   );
 }
 
-export default function PostCard({ post, onCommentOpen }: PostCardProps) {
+export default function PostCard({ post, onCommentOpen, onDelete }: PostCardProps) {
   const { user, userProfile } = useAuth();
   const {
     isLiked: mockIsLiked,
@@ -147,6 +149,23 @@ export default function PostCard({ post, onCommentOpen }: PostCardProps) {
   const [currentLikes, setCurrentLikes] = useState(likesCount);
   const [liking, setLiking] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const canDelete = isFirestore && !!user && user.uid === authorId;
+
+  const handleDelete = useCallback(async () => {
+    if (!canDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await deletePost(postId);
+      onDelete?.(postId);
+    } catch (e) {
+      console.error("deletePost failed:", e);
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [canDelete, deleting, postId, onDelete]);
 
   useEffect(() => {
     if (isFirestore && user) {
@@ -290,7 +309,35 @@ export default function PostCard({ post, onCommentOpen }: PostCardProps) {
             <button className="flex flex-col items-center gap-1">
               <Share2 size={24} className="text-white drop-shadow-lg" />
             </button>
+
+            {canDelete && (
+              <button onClick={() => setShowDeleteConfirm(true)} className="flex flex-col items-center gap-1">
+                <Trash2 size={22} className="text-rose-400 drop-shadow-lg" />
+              </button>
+            )}
           </div>
+
+          {/* 削除確認オーバーレイ（メディア投稿） */}
+          {showDeleteConfirm && (
+            <div className="absolute inset-0 z-40 bg-black/80 flex flex-col items-center justify-center gap-4">
+              <p className="text-white font-bold text-base">この投稿を削除しますか？</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-6 py-2.5 rounded-full bg-zinc-700 text-white text-sm font-bold"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="px-6 py-2.5 rounded-full bg-rose-600 text-white text-sm font-bold disabled:opacity-50"
+                >
+                  {deleting ? "削除中..." : "削除"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 下部 作者情報 */}
           <div className="absolute bottom-0 left-0 right-16 p-4 z-20">
@@ -353,6 +400,27 @@ export default function PostCard({ post, onCommentOpen }: PostCardProps) {
           </div>
         )}
 
+        {showDeleteConfirm && (
+          <div className="flex items-center justify-between mt-3 p-3 bg-zinc-900 rounded-xl border border-rose-500/30">
+            <span className="text-white text-sm font-bold">この投稿を削除しますか？</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-3 py-1.5 rounded-full bg-zinc-700 text-white text-xs font-bold"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-3 py-1.5 rounded-full bg-rose-600 text-white text-xs font-bold disabled:opacity-50"
+              >
+                {deleting ? "削除中..." : "削除"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-5 pt-3 border-t border-white/5">
           <motion.button
             onClick={handleLike}
@@ -381,6 +449,12 @@ export default function PostCard({ post, onCommentOpen }: PostCardProps) {
           <button className="ml-auto group">
             <Share2 size={19} className="text-white/40 group-hover:text-white/70 transition-colors" />
           </button>
+
+          {canDelete && (
+            <button onClick={() => setShowDeleteConfirm(true)} className="group">
+              <Trash2 size={18} className="text-rose-400/60 group-hover:text-rose-400 transition-colors" />
+            </button>
+          )}
         </div>
       </div>
       <div className="feed-divider" />
