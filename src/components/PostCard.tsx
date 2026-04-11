@@ -120,10 +120,13 @@ export default function PostCard({ post, onCommentOpen, onDelete }: PostCardProp
     hasAccess = !isPremium || (userProfile?.isPremiumSubscriber ?? false);
     authorName = p.authorName;
     authorId = p.authorId;
-    // 自分の投稿は常に最新のプロフィール写真を使う
-    authorPhoto = (user?.uid === p.authorId)
-      ? (userProfile?.photoURL || user?.photoURL || p.authorPhoto || undefined)
-      : (p.authorPhoto || undefined);
+    // 自分の投稿は常に最新のプロフィール情報を使う
+    if (user?.uid === p.authorId) {
+      authorName = userProfile?.displayName || user?.displayName || p.authorName;
+      authorPhoto = userProfile?.photoURL || user?.photoURL || p.authorPhoto || undefined;
+    } else {
+      authorPhoto = p.authorPhoto || undefined;
+    }
     caption = p.content;
     tags = p.tags ?? [];
     likesCount = p.likesCount;

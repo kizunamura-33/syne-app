@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, Crown, Send } from "lucide-react";
+import { ChevronLeft, Send } from "lucide-react";
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +10,7 @@ import {
   sendFirestoreMessage,
   getFirestoreMessages,
   FirestoreMessage,
+  getUserProfile,
 } from "@/lib/firestore";
 
 function formatTime(iso: string): string {
@@ -27,9 +28,16 @@ const AUTO_REPLIES = [
   "感謝してます！",
 ];
 
+type ArtistInfo = {
+  id: string;
+  name: string;
+  avatar: string;
+  genre?: string;
+};
+
 export default function ChatPage({ params }: { params: Promise<{ artistId: string }> }) {
   const { artistId } = use(params);
-  const artist = artists.find((a) => a.id === artistId);
+  const mockArtist = artists.find((a) => a.id === artistId);
   const { user, userProfile } = useAuth();
   const { markChatRead, myAvatar, myName, supabaseArtistId } = useAppStore();
 
@@ -41,6 +49,9 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<FirestoreMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [artistInfo, setArtistInfo] = useState<ArtistInfo | null>(
+    mockArtist ? { id: mockArtist.id, name: mockArtist.name, avatar: mockArtist.avatar, genre: mockArtist.genre } : null
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +60,23 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
   useEffect(() => {
     markChatRead(artistId);
   }, [artistId, markChatRead]);
+
+  // モックにない場合はFirestoreからアーティスト情報を取得
+  useEffect(() => {
+    if (mockArtist) return;
+    getUserProfile(artistId)
+      .then((profile) => {
+        if (profile) {
+          setArtistInfo({
+            id: artistId,
+            name: profile.displayName || "アーティスト",
+            avatar: profile.photoURL || "",
+            genre: "",
+          });
+        }
+      })
+      .catch(console.error);
+  }, [artistId, mockArtist]);
 
   // Firestoreからメッセージ読み込み
   useEffect(() => {
@@ -69,7 +97,6 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
     const body = text.trim();
     setText("");
 
-    // 楽観的に追加
     const tempMsg: FirestoreMessage = {
       id: `temp_${Date.now()}`,
       fanId: user.uid,
@@ -87,7 +114,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       console.error("sendMessage failed:", e);
     }
 
-    // 自動返信（モックアーティストのみ）
+    // 自動返信（アーティストモード以外）
     if (!isArtistMode) {
       const replyText = AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)];
       setTimeout(async () => {
@@ -112,7 +139,17 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  if (!artist) {
+  // アーティスト情報がまだ読み込み中
+  if (!artistInfo && !mockArtist) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-zinc-500 gap-3">
+        <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 見つからない場合
+  if (!artistInfo) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-zinc-500 gap-3">
         <p>アーティストが見つかりません</p>
@@ -121,7 +158,8 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
     );
   }
 
-  const artistAvatar = artist.avatar;
+  const artistAvatar = artistInfo.avatar;
+  const artistName = artistInfo.name;
 
   return (
     <div className="flex flex-col h-screen bg-black">
@@ -131,27 +169,19 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
           <ChevronLeft size={22} className="text-white" />
         </Link>
         <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
-          <img
-            src={artistAvatar}
-            alt={artist.name}
-            width={36}
-            height={36}
-            className="w-full h-full object-cover object-top"
-          />
+          {artistAvatar ? (
+            <img src={artistAvatar} alt={artistName} width={36} height={36} className="w-full h-full object-cover object-top" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-sm font-bold">
+              {artistName[0]?.toUpperCase()}
+            </div>
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <span className="text-white font-bold text-sm">{artist.name}</span>
-            {artist.verified && (
-              <Crown size={11} className="text-yellow-400 fill-yellow-400" />
-            )}
-          </div>
-          <span className="text-zinc-500 text-xs">{artist.genre}</span>
+          <span className="text-white font-bold text-sm">{artistName}</span>
+          {artistInfo.genre && <p className="text-zinc-500 text-xs">{artistInfo.genre}</p>}
         </div>
-        <Link
-          href={`/artist/${artist.id}`}
-          className="text-xs text-purple-400 font-medium flex-shrink-0"
-        >
+        <Link href={`/artist/${artistId}`} className="text-xs text-purple-400 font-medium flex-shrink-0">
           プロフィール
         </Link>
       </header>
@@ -171,40 +201,43 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
         ) : messages.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-3 bg-zinc-800">
-              <img src={artistAvatar} alt={artist.name} className="w-full h-full object-cover object-top" />
+              {artistAvatar ? (
+                <img src={artistAvatar} alt={artistName} className="w-full h-full object-cover object-top" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-xl font-bold">
+                  {artistName[0]?.toUpperCase()}
+                </div>
+              )}
             </div>
-            <p className="text-white font-bold">{artist.name}</p>
-            <p className="text-zinc-500 text-sm mt-1">{artist.genre}</p>
+            <p className="text-white font-bold">{artistName}</p>
             <p className="text-zinc-600 text-xs mt-3">最初のメッセージを送ってみよう</p>
           </div>
         ) : (
           messages.map((msg) => {
             const isMine = isArtistMode ? !msg.fromMe : msg.fromMe;
             return (
-              <div
-                key={msg.id}
-                className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}
-              >
+              <div key={msg.id} className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                 {!isMine && (
                   <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mb-1 bg-zinc-800">
-                    <img
-                      src={isArtistMode
-                        ? (myPhoto ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(myDisplayName)}&background=7c3aed&color=fff`)
-                        : artistAvatar}
-                      alt={isArtistMode ? myDisplayName : artist.name}
-                      className="w-full h-full object-cover object-top"
-                    />
+                    {(isArtistMode ? myPhoto : artistAvatar) ? (
+                      <img
+                        src={isArtistMode ? (myPhoto ?? "") : artistAvatar}
+                        alt={isArtistMode ? myDisplayName : artistName}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold">
+                        {(isArtistMode ? myDisplayName : artistName)[0]?.toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 )}
-
                 <div className={`flex flex-col gap-1 max-w-[72%] ${isMine ? "items-end" : "items-start"}`}>
-                  <div
-                    className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      isMine
-                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-br-sm"
-                        : "bg-zinc-800 text-white rounded-bl-sm"
-                    }`}
-                  >
+                  <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                    isMine
+                      ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-br-sm"
+                      : "bg-zinc-800 text-white rounded-bl-sm"
+                  }`}>
                     {msg.text}
                   </div>
                   <span className="text-zinc-600 text-[10px]">{formatTime(msg.createdAt)}</span>
@@ -223,11 +256,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
       >
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
           {myPhoto ? (
-            <img
-              src={isArtistMode ? artistAvatar : myPhoto}
-              alt="me"
-              className="w-full h-full object-cover object-top"
-            />
+            <img src={isArtistMode ? artistAvatar : myPhoto} alt="me" className="w-full h-full object-cover object-top" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold">
               {myDisplayName[0]?.toUpperCase()}
@@ -239,7 +268,7 @@ export default function ChatPage({ params }: { params: Promise<{ artistId: strin
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={isArtistMode ? "ファンに返信..." : `${artist.name}にメッセージ...`}
+          placeholder={isArtistMode ? "ファンに返信..." : `${artistName}にメッセージ...`}
           className="flex-1 bg-zinc-800 text-white placeholder-zinc-600 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-1 focus:ring-purple-500/50"
         />
         <button

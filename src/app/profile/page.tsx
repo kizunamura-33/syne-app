@@ -8,10 +8,12 @@ import { Crown, Settings, ChevronRight, X, Camera, Check, LogOut, Mic, LogIn, Tr
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfile } from "@/lib/firestore";
+import { updateUserProfile, getUserProfile } from "@/lib/firestore";
 import toast from "react-hot-toast";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
+
+type FsArtist = { id: string; name: string; photo: string };
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -20,8 +22,20 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const isArtist = userProfile?.isArtist === true;
   const { followedArtists, subscribedArtists, supabaseArtistId } = useAppStore();
+  const mockIdSet = new Set(artists.map((a) => a.id));
   const followedList = artists.filter((a) => followedArtists.has(a.id));
   const subscribedList = artists.filter((a) => subscribedArtists.has(a.id));
+
+  // Firestoreアーティスト（モックにないフォロー済み）
+  const [fsFollowedArtists, setFsFollowedArtists] = useState<FsArtist[]>([]);
+  useEffect(() => {
+    const fsIds = Array.from(followedArtists).filter((id) => !mockIdSet.has(id));
+    if (fsIds.length === 0) { setFsFollowedArtists([]); return; }
+    Promise.all(fsIds.map((id) => getUserProfile(id).then((p) => p ? { id, name: p.displayName || "アーティスト", photo: p.photoURL || "" } : null)))
+      .then((results) => setFsFollowedArtists(results.filter(Boolean) as FsArtist[]))
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followedArtists]);
   // アーティストとして登録されている場合のマイページID
   const myArtistId = isArtist ? (supabaseArtistId || user?.uid) : null;
 
@@ -230,7 +244,7 @@ export default function ProfilePage() {
         {/* Followed */}
         <div className="mb-6">
           <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">フォロー中</h3>
-          {followedList.length === 0 ? (
+          {followedList.length === 0 && fsFollowedArtists.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-zinc-600 text-sm">まだフォロー中のアーティストはいません</p>
               <Link href="/discover" className="text-purple-400 text-sm mt-2 inline-block">アーティストを探す →</Link>
@@ -249,6 +263,24 @@ export default function ProfilePage() {
                       {artist.verified && <Crown size={11} className="text-yellow-400 fill-yellow-400" />}
                     </div>
                     <p className="text-zinc-500 text-xs">{artist.genre}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-zinc-600" />
+                </Link>
+              ))}
+              {fsFollowedArtists.map((artist) => (
+                <Link key={artist.id} href={`/artist/${artist.id}`}
+                  className="flex items-center gap-3 bg-zinc-950 rounded-2xl p-3 border border-zinc-800/50">
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
+                    {artist.photo ? (
+                      <img src={artist.photo} alt={artist.name} className="w-full h-full object-cover object-top" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white font-bold">
+                        {artist.name[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-white font-semibold text-sm">{artist.name}</span>
                   </div>
                   <ChevronRight size={16} className="text-zinc-600" />
                 </Link>
