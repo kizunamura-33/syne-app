@@ -173,31 +173,22 @@ export default function CreatePage() {
       </header>
 
       <div className="px-4 py-5 space-y-5 pb-32">
-        {/* 投稿タイプ選択 */}
+        {/* 投稿タイプ選択（テキストのみ） */}
         <div className="flex gap-2">
-          {[
-            { type: "text" as PostType, icon: FileText, label: "テキスト" },
-            { type: "image" as PostType, icon: ImageIcon, label: "画像" },
-            { type: "video" as PostType, icon: Video, label: "動画" },
-          ].map(({ type, icon: Icon, label }) => (
-            <button
-              key={type}
-              onClick={() => {
-                if (type !== "text" && !mediaFile) {
-                  fileRef.current?.click();
-                }
-                if (type === "text") removeMedia();
-              }}
-              className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all ${
-                postType === type
-                  ? "border-purple-500/50 bg-purple-500/10 text-purple-300"
-                  : "border-white/8 bg-[#0f0f0f] text-zinc-500"
-              }`}
-            >
-              <Icon size={20} />
-              <span className="text-xs font-medium">{label}</span>
-            </button>
-          ))}
+          <div className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border border-purple-500/50 bg-purple-500/10 text-purple-300">
+            <FileText size={20} />
+            <span className="text-xs font-medium">テキスト</span>
+          </div>
+          <div className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border border-white/8 bg-[#0f0f0f] text-zinc-700 cursor-not-allowed opacity-40 relative">
+            <ImageIcon size={20} />
+            <span className="text-xs font-medium">画像</span>
+            <span className="text-[9px] text-zinc-600 absolute bottom-1">準備中</span>
+          </div>
+          <div className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border border-white/8 bg-[#0f0f0f] text-zinc-700 cursor-not-allowed opacity-40 relative">
+            <Video size={20} />
+            <span className="text-xs font-medium">動画</span>
+            <span className="text-[9px] text-zinc-600 absolute bottom-1">準備中</span>
+          </div>
         </div>
 
         <input
