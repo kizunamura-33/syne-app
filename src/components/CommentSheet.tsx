@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Send, LogIn } from "lucide-react";
+import { X, Send, LogIn, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   subscribeToComments,
   addComment as addFirestoreComment,
+  deleteComment,
   FirestoreComment,
 } from "@/lib/firestore";
 import { useAppStore } from "@/store/useAppStore";
@@ -199,8 +200,18 @@ export default function CommentSheet({
                     ? (c as FirestoreComment).createdAt
                     : (c as { createdAt: string }).createdAt;
 
+                  const handleDeleteComment = async () => {
+                    if (!isFirestoreC) return;
+                    try {
+                      await deleteComment(postId, c.id);
+                      setFirestoreComments((prev) => prev.filter((fc) => fc.id !== c.id));
+                    } catch (e) {
+                      console.error("deleteComment failed:", e);
+                    }
+                  };
+
                   return (
-                    <div key={c.id} className="flex gap-3">
+                    <div key={c.id} className="flex gap-3 group">
                       <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800">
                         {/* イニシャル（常に裏に描画） */}
                         <div className="absolute inset-0 bg-gradient-syne flex items-center justify-center text-white text-xs font-bold">
@@ -223,6 +234,11 @@ export default function CommentSheet({
                         </div>
                         <p className="text-zinc-300 text-sm mt-0.5 leading-snug">{body}</p>
                       </div>
+                      {isOwnComment && isFirestoreC && (
+                        <button onClick={handleDeleteComment} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 self-start pt-1">
+                          <Trash2 size={14} className="text-zinc-600 hover:text-rose-400 transition-colors" />
+                        </button>
+                      )}
                     </div>
                   );
                 })

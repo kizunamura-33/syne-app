@@ -525,6 +525,12 @@ export async function getFirestoreMessages(
   return results as unknown as FirestoreMessage[];
 }
 
+// ─── コメント削除 ─────────────────────────────────────
+export async function deleteComment(postId: string, commentId: string): Promise<void> {
+  await doDelete(`posts/${postId}/comments/${commentId}`);
+  doIncrement(`posts/${postId}`, "commentsCount", -1).catch(console.error);
+}
+
 // ─── 投稿削除 ──────────────────────────────────────────
 export async function deletePost(postId: string): Promise<void> {
   await doDelete(`posts/${postId}`);

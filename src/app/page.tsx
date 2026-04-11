@@ -13,7 +13,7 @@ import { useAppStore } from "@/store/useAppStore";
 
 export default function HomePage() {
   const { user, loading } = useAuth();
-  const { getArtistAvatar } = useAppStore();
+  const { getArtistAvatar, followedArtists } = useAppStore();
   const [firestorePosts, setFirestorePosts] = useState<FirestorePost[]>([]);
   const [commentTarget, setCommentTarget] = useState<{ id: string; isFirestore: boolean } | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | "following">("all");
@@ -46,6 +46,17 @@ export default function HomePage() {
 
   // 全投稿をマージ（Firestore 優先、最新順）
   const allPosts = useMemo(() => [...fsUnified, ...mockUnified], [fsUnified, mockUnified]);
+
+  // フォロー中タブ用フィルタ
+  const displayPosts = useMemo(() => {
+    if (activeTab !== "following") return allPosts;
+    return allPosts.filter((post) => {
+      const authorId = post._source === "firestore"
+        ? (post as { authorId: string }).authorId
+        : (post as { artistId: string }).artistId;
+      return followedArtists.has(authorId);
+    });
+  }, [allPosts, activeTab, followedArtists]);
 
   const openComment = useCallback((postId: string) => {
     const isFs = firestorePosts.some((p) => p.id === postId);
@@ -147,7 +158,12 @@ export default function HomePage() {
         )}
 
         <AnimatePresence initial={false}>
-          {allPosts.map((post, i) => (
+          {displayPosts.length === 0 && activeTab === "following" && !loading && (
+            <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+              <p className="text-zinc-500 text-sm">フォロー中のアーティストの投稿がありません</p>
+            </div>
+          )}
+          {displayPosts.map((post, i) => (
             <motion.div
               key={post.id}
               initial={{ opacity: 0, y: 12 }}

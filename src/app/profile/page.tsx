@@ -8,7 +8,7 @@ import { Crown, Settings, ChevronRight, X, Camera, Check, LogOut, Mic, LogIn, Tr
 import { artists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfile, uploadAvatar } from "@/lib/firestore";
+import { updateUserProfile } from "@/lib/firestore";
 import toast from "react-hot-toast";
 
 const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
@@ -71,13 +71,8 @@ export default function ProfilePage() {
     try {
       const idToken = await user.getIdToken();
 
-      // data URL の場合は Firebase Storage にアップロード
-      let photoURL = editAvatar;
-      if (editAvatar.startsWith("data:")) {
-        const blob = await (await fetch(editAvatar)).blob();
-        const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
-        photoURL = await uploadAvatar(file, user.uid);
-      }
+      // data URL はそのままFirestoreに保存（Storageなし）
+      const photoURL = editAvatar;
 
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), 15000)
