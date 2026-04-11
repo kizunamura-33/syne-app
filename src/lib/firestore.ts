@@ -519,15 +519,16 @@ export async function getFirestoreMessages(
   fanId: string,
   artistId: string,
 ): Promise<FirestoreMessage[]> {
+  // orderBy省略でインデックス不要、クライアントでソート
   const results = await doQuery(
     "chatMessages",
     [
       { field: "fanId", op: "EQUAL", value: fanId },
       { field: "artistId", op: "EQUAL", value: artistId },
     ],
-    [{ field: "createdAt", dir: "ASCENDING" }],
   );
-  return results as unknown as FirestoreMessage[];
+  const msgs = results as unknown as FirestoreMessage[];
+  return msgs.sort((a, b) => (a.createdAt > b.createdAt ? 1 : -1));
 }
 
 // ─── コメント削除 ─────────────────────────────────────
@@ -542,10 +543,11 @@ export async function deletePost(postId: string): Promise<void> {
 }
 
 export async function getFirestoreConversations(fanId: string): Promise<FirestoreMessage[]> {
+  // orderBy省略でインデックス不要、クライアントでソート
   const results = await doQuery(
     "chatMessages",
     [{ field: "fanId", op: "EQUAL", value: fanId }],
-    [{ field: "createdAt", dir: "DESCENDING" }],
   );
-  return results as unknown as FirestoreMessage[];
+  const msgs = results as unknown as FirestoreMessage[];
+  return msgs.sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
 }
