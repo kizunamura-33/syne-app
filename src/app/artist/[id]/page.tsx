@@ -7,7 +7,8 @@ import { Crown, Users, ChevronLeft, Lock, Check, Pencil, X, Camera, MessageCircl
 import { useRouter } from "next/navigation";
 import { artists, posts as mockPosts } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
-import { getUserPosts, FirestorePost } from "@/lib/firestore";
+import { useAuth } from "@/contexts/AuthContext";
+import { getUserPosts, FirestorePost, getUserProfile, updateUserProfile, UserProfile } from "@/lib/firestore";
 import PostCard, { UnifiedPost } from "@/components/PostCard";
 import CommentSheet from "@/components/CommentSheet";
 
@@ -26,11 +27,13 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
     supabaseArtistId, updateArtistProfile, getArtistAvatar, getArtistBio,
     fetchFollowerCount, followerCounts,
   } = useAppStore();
+  const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
   const [fsPosts, setFsPosts] = useState<FirestorePost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [commentTarget, setCommentTarget] = useState<{ id: string; isFirestore: boolean } | null>(null);
+  const [fsUserProfile, setFsUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -41,9 +44,17 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
       .then(setFsPosts)
       .catch(console.error)
       .finally(() => setPostsLoading(false));
-  }, [id, fetchFollowerCount]);
 
-  const isMyArtist = mounted && supabaseArtistId === id;
+    // モックにないアーティストはFirestoreからプロフィールを取得
+    if (!mockArtist) {
+      getUserProfile(id)
+        .then((p) => { if (p) setFsUserProfile(p); })
+        .catch(console.error);
+    }
+  }, [id, fetchFollowerCount, mockArtist]);
+
+  // Supabase ID（モックアーティスト）またはFirebase UID（Firestoreアーティスト）と一致すれば自分のページ
+  const isMyArtist = mounted && (supabaseArtistId === id || (!!user && user.uid === id && !!fsUserProfile?.isArtist));
   const currentAvatar = getArtistAvatar(id);
   const currentBio = getArtistBio(id);
 
@@ -54,8 +65,8 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
   const fileRef = useRef<HTMLInputElement>(null);
 
   const openEdit = () => {
-    setEditBio(currentBio);
-    setEditAvatar(currentAvatar ?? "");
+    setEditBio(currentBio || fsUserProfile?.bio || "");
+    setEditAvatar(currentAvatar || fsUserProfile?.photoURL || "");
     setEditOpen(true);
   };
 
@@ -80,6 +91,12 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
   };
 
   const saveEdit = async () => {
+    // Firestoreアーティスト（モック以外）はFirestoreにも保存
+    if (!mockArtist && user) {
+      const token = await user.getIdToken();
+      await updateUserProfile(id, { bio: editBio.trim(), photoURL: editAvatar }, token);
+      setFsUserProfile((prev) => prev ? { ...prev, bio: editBio.trim(), photoURL: editAvatar } : prev);
+    }
     await updateArtistProfile(id, editBio.trim(), editAvatar);
     setEditOpen(false);
     setSaved(true);
@@ -125,15 +142,15 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
 
   // Firestore 登録アーティストの情報をフォールバックで構築
   const firstFsPost = fsPosts[0];
-  const artistName = mockArtist?.name ?? firstFsPost?.authorName ?? id;
-  const artistAvatar = currentAvatar ?? mockArtist?.avatar ?? firstFsPost?.authorPhoto ?? "";
+  const artistName = mockArtist?.name ?? fsUserProfile?.displayName ?? firstFsPost?.authorName ?? id;
+  const artistAvatar = currentAvatar ?? mockArtist?.avatar ?? fsUserProfile?.photoURL ?? firstFsPost?.authorPhoto ?? "";
   const artistCover = mockArtist?.coverImage ?? "";
   const artistGenre = mockArtist?.genre ?? "";
   const artistVerified = mockArtist?.verified ?? false;
   const artistMonthlyPrice = mockArtist?.monthlyPrice ?? 980;
 
-  // モックにもなく Firestore 投稿もない場合
-  if (!postsLoading && !mockArtist && fsPosts.length === 0) {
+  // モックにもなく Firestore 投稿もプロフィールもない場合
+  if (!postsLoading && !mockArtist && fsPosts.length === 0 && !fsUserProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-zinc-500 gap-3">
         <p>アーティストが見つかりません</p>
