@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Search, Crown, Users, Sparkles } from "lucide-react";
 import { artists as mockArtists } from "@/data/mockData";
 import { useAppStore } from "@/store/useAppStore";
-import { getPosts } from "@/lib/firestore";
+import { getPosts, getUserProfile } from "@/lib/firestore";
 
 function formatFollowers(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -33,10 +33,10 @@ export default function DiscoverPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  // Firestore 投稿から実アーティスト抽出
+  // Firestore 投稿から実アーティスト抽出 → 現在のプロフィールで写真・名前を上書き
   useEffect(() => {
     getPosts(undefined, 50)
-      .then(({ posts }) => {
+      .then(async ({ posts }) => {
         const map = new Map<string, RealArtist>();
         for (const post of posts) {
           if (!post.authorId) continue;
@@ -52,7 +52,18 @@ export default function DiscoverPage() {
             });
           }
         }
-        setRealArtists(Array.from(map.values()));
+        const artists = Array.from(map.values());
+        // 現在のFirestoreプロフィールで写真・名前を上書き
+        await Promise.all(
+          artists.map((a) =>
+            getUserProfile(a.id).then((p) => {
+              if (!p) return;
+              if (p.photoURL) a.photo = p.photoURL;
+              if (p.displayName) a.name = p.displayName;
+            }).catch(() => {})
+          )
+        );
+        setRealArtists(artists);
       })
       .catch(console.error)
       .finally(() => setLoading(false));

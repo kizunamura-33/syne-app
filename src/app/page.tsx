@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogIn, Radio, Zap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { subscribeToFeed, FirestorePost } from "@/lib/firestore";
+import { subscribeToFeed, FirestorePost, getUserProfile } from "@/lib/firestore";
 import { posts as mockPosts, artists } from "@/data/mockData";
 import PostCard, { UnifiedPost } from "@/components/PostCard";
 import CommentSheet from "@/components/CommentSheet";
@@ -15,9 +15,11 @@ export default function HomePage() {
   const { user, loading } = useAuth();
   const { getArtistAvatar, followedArtists } = useAppStore();
   const [firestorePosts, setFirestorePosts] = useState<FirestorePost[]>([]);
+  const [authorPhotoMap, setAuthorPhotoMap] = useState<Record<string, string>>({});
   const [commentTarget, setCommentTarget] = useState<{ id: string; isFirestore: boolean } | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | "following">("all");
   const unsubRef = useRef<(() => void) | null>(null);
+  const mockIdSet = useMemo(() => new Set(artists.map((a) => a.id)), []);
 
   // Firestore フィード購読
   useEffect(() => {
@@ -26,6 +28,22 @@ export default function HomePage() {
       unsubRef.current?.();
     };
   }, []);
+
+  // Firestoreアーティストの現在のプロフィール写真を取得して上書き
+  useEffect(() => {
+    if (firestorePosts.length === 0) return;
+    const uniqueIds = [...new Set(
+      firestorePosts.map((p) => p.authorId).filter((id) => id && !mockIdSet.has(id))
+    )];
+    if (uniqueIds.length === 0) return;
+    Promise.all(
+      uniqueIds.map((id) => getUserProfile(id).then((p) => p ? [id, p.photoURL] as [string, string] : null))
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      for (const r of results) if (r?.[1]) map[r[0]] = r[1];
+      setAuthorPhotoMap(map);
+    }).catch(console.error);
+  }, [firestorePosts, mockIdSet]);
 
   // モック投稿を UnifiedPost 型に変換（メモ化）
   const mockUnified = useMemo<UnifiedPost[]>(() => mockPosts.map((p) => {
@@ -38,11 +56,12 @@ export default function HomePage() {
     };
   }), [getArtistAvatar]);
 
-  // Firestore 投稿を UnifiedPost 型に変換（メモ化）
+  // Firestore 投稿を UnifiedPost 型に変換（現在のプロフィール写真で上書き）
   const fsUnified = useMemo<UnifiedPost[]>(() => firestorePosts.map((p) => ({
     _source: "firestore" as const,
     ...p,
-  })), [firestorePosts]);
+    authorPhoto: authorPhotoMap[p.authorId] || p.authorPhoto,
+  })), [firestorePosts, authorPhotoMap]);
 
   // 全投稿をマージ（Firestore 優先、最新順）
   const allPosts = useMemo(() => [...fsUnified, ...mockUnified], [fsUnified, mockUnified]);
