@@ -104,9 +104,14 @@ export default function ArtistPage({ params }: { params: Promise<{ id: string }>
   };
 
   // Firestore 投稿をモック投稿と合わせて表示
+  // 現在のプロフィール写真・名前で上書き（Firestore or Supabase or モック）
+  const overridePhoto = getArtistAvatar(id) ?? mockArtist?.avatar ?? fsUserProfile?.photoURL;
+  const overrideName = mockArtist?.name ?? fsUserProfile?.displayName;
   const fsUnified: UnifiedPost[] = fsPosts.map((p) => ({
     _source: "firestore" as const,
     ...p,
+    authorPhoto: overridePhoto ?? p.authorPhoto,
+    authorName: overrideName ?? p.authorName,
   }));
 
   const mockUnified: UnifiedPost[] = mockPosts
